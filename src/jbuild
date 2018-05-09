@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+ ((name        binance)
+  (public_name binance)
+  (synopsis "Binance API types")
+  (libraries (base ocplib-json-typed ptime))))

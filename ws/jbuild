@@ -1,0 +1,13 @@
+(jbuild_version 1)
+
+(library
+ ((name        ws)
+  (public_name binance_ws)
+  (synopsis "Binance Websocket API")
+  (libraries (binance
+              websocket-async))))
+
+;; (executables
+;;  ((names        ())
+;;   (public_names ())
+;;   (libraries ())))
