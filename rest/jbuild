@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+ ((name        rest)
+  (public_name binance_rest)
+  (synopsis "REST API for Binance")
+  (libraries ())))
