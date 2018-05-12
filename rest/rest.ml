@@ -16,7 +16,10 @@ end
 
 let url = Uri.make ~scheme:"https" ~host:"api.binance.com" ()
 let ssl_config =
-  Conduit_async.Ssl.configure ~version:Tlsv1_2 ()
+  Conduit_async_ssl.Cfg.create
+    ~name:"Binance REST"
+    ~hostname:"api.binance.com"
+    ()
 
 module HTTPError = struct
   type t = {
@@ -40,14 +43,13 @@ let call
     ?log
     ?(span=Time_ns.Span.of_int_sec 1)
     ?(max_tries=3)
-    ?(query=[])
-    ?key
     ?params
+    ?key
     ?sign
     ~meth
     path =
   let url = Uri.with_path url path in
-  let url = Uri.with_query url query in
+  let url = Option.value_map params ~default:url ~f:(Uri.with_query url) in
   (* begin match log, body_str with
    *   | Some log, Some body_str ->
    *     Log.debug log "%s %s -> %s" (show_verb verb) path body_str
@@ -58,8 +60,10 @@ let call
       C.Header.add headers "content-type" "application/x-www-form-urlencoded") in
   let headers = Option.value_map key ~default:headers
       ~f:(fun key -> C.Header.add headers "X-MBX-APIKEY" key) in
-  let body =
-    Option.map params ~f:(fun ps -> Body.of_string (Uri.encoded_of_query ps)) in
+  let body = match meth with
+    | `GET -> None
+    | #C.Code.meth ->
+      Option.map params ~f:(fun ps -> Body.of_string (Uri.encoded_of_query ps)) in
   let call () = match meth with
     | `GET -> Client.get ~ssl_config ~headers url
     | `POST -> Client.post ~ssl_config ~headers ~chunked:false ?body url
@@ -74,7 +78,7 @@ let call
     let status_code = C.Code.code_of_status status in
     if C.Code.is_success status_code then
       return (resp, Yojson.Safe.from_string ?buf body_str)
-    else if C.Code.is_error status_code then begin
+    else if C.Code.is_server_error status_code then begin
       let status_code_str = C.Code.string_of_status status in
       Option.iter log ~f:begin fun log ->
         Log.error log "%s %s: %s" (C.Code.string_of_method meth) path status_code_str
@@ -85,9 +89,7 @@ let call
       else inner_exn @@ succ try_id
     end
     else
-      failwithf "%s %s: Unexpected HTTP return status %s"
-        (C.Code.string_of_method meth) path
-        (C.Code.string_of_status status) ()
+      failwithf "%s: %s" (Uri.to_string url) (C.Code.string_of_status status) ()
   in
   Monitor.try_with_or_error ?extract_exn (fun () -> inner_exn 0)
 

@@ -74,7 +74,9 @@ let event_encoding =
        (req "stream" string)
        (req "data" event_encoding))
 
-let ssl_config = Conduit_async.Ssl.configure ~version:Tlsv1_2 ()
+let ssl_config =
+  Conduit_async_ssl.Cfg.create ~name:"Binance WS" ()
+
 let open_connection ?(buf=Bi_outbuf.create 4096) ?connected ?log streams =
   let uri = Uri.with_path uri "stream" in
   let uri = Uri.with_query uri ["streams", [path_of_streams streams]] in

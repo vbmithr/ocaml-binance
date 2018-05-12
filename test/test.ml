@@ -9,7 +9,7 @@ let wrap n f =
   end
 
 let rest = [
-  wrap "get" (fun () -> Rest.Depth.get ~limit:5 "bnbbtc")
+  wrap "get" (fun () -> Rest.Depth.get ~limit:5 "BNBBTC")
 ]
 
 let () =
