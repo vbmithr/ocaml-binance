@@ -4,4 +4,6 @@
  ((name        rest)
   (public_name binance_rest)
   (synopsis "REST API for Binance")
-  (libraries ())))
+  ;; (inline_tests)
+  ;; (preprocess (pps (ppx_inline_test)))
+  (libraries (binance core async cohttp-async yojson))))

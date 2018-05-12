@@ -1,0 +1,14 @@
+(jbuild_version 1)
+
+(executables
+ ((names        (test))
+  (libraries (ws rest alcotest-async))))
+
+(alias
+ ((name    runtest-binance)
+  (deps    (test.exe))
+  (action  (run ${<}))))
+
+(alias
+ ((name    runtest)
+  (deps    ((alias runtest-binance)))))

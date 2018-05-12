@@ -12,6 +12,8 @@ module Trade : sig
   }
 
   val encoding : t Json_encoding.encoding
+  val pp : t Fmt.t
+  val to_string : t -> string
 end
 
 module Depth : sig
@@ -30,4 +32,7 @@ module Depth : sig
   }
 
   val encoding : t Json_encoding.encoding
+  val level_encoding : level Json_encoding.encoding
+  val pp : t Fmt.t
+  val to_string : t -> string
 end

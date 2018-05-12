@@ -7,6 +7,10 @@ let ptime =
     (fun i -> Option.value ~default:Ptime.epoch (Ptime.of_float_s (i /. 1e3)))
     float
 
+let float_as_string =
+  let open Json_encoding in
+  conv Float.to_string Float.of_string string
+
 module Trade = struct
   type t = {
     event_ts : Ptime.t ;
@@ -36,11 +40,15 @@ module Trade = struct
                           (req "T" ptime)
                           (req "s" string)
                           (req "t" int)
-                          (req "p" float)
-                          (req "q" float)
+                          (req "p" float_as_string)
+                          (req "q" float_as_string)
                           (req "b" int)
                           (req "a" int)
                           (req "m" bool)))
+
+  let pp ppf t =
+    Json_repr.(pp (module Ezjsonm) ppf (Json_encoding.construct encoding t))
+  let to_string = Fmt.to_to_string pp
 end
 
 module Depth = struct
@@ -57,7 +65,7 @@ module Depth = struct
     q : float ;
   }
 
-  let level =
+  let level_encoding =
     let open Json_encoding in
     conv
       (fun { p ; q } -> (Float.to_string p, Float.to_string q, ()))
@@ -78,7 +86,9 @@ module Depth = struct
                           (req "s" string)
                           (req "U" int)
                           (req "u" int)
-                          (req "b" (list level))
-                          (req "a" (list level))
-                       ))
+                          (req "b" (list level_encoding))
+                          (req "a" (list level_encoding))))
+  let pp ppf t =
+    Json_repr.(pp (module Ezjsonm) ppf (Json_encoding.construct encoding t))
+  let to_string = Fmt.to_to_string pp
 end
