@@ -35,6 +35,9 @@ type stream = {
   symbol : string ;
 }
 
+let create_stream ~topic ~symbol =
+  { topic ; symbol = String.lowercase symbol }
+
 let pp_stream ppf { topic ; symbol } =
   Format.pp_print_string ppf symbol ;
   Format.pp_print_char ppf '@' ;

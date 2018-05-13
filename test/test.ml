@@ -1,8 +1,10 @@
 open Core
 open Async
 
-let wrap n f =
-  Alcotest_async.test_case n `Quick begin fun () ->
+open Binance
+
+let wrap ?(speed=`Quick) n f =
+  Alcotest_async.test_case n speed begin fun () ->
     f () >>= function
     | Ok _ -> Deferred.unit
     | Error err -> failwith (Error.to_string_hum err)

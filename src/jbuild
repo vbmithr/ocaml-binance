@@ -4,4 +4,5 @@
  ((name        binance)
   (public_name binance)
   (synopsis "Binance API types")
-  (libraries (fmt ocplib-json-typed ptime))))
+  (preprocess (pps (ppx_sexp_conv)))
+  (libraries (base fmt ocplib-json-typed ptime))))

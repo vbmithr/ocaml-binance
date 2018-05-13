@@ -5,10 +5,11 @@ open Binance
 module Depth : sig
   type t = {
     last_update_id : int ;
-    bids : Depth.level list ;
-    asks : Depth.level list ;
+    bids : Level.t list ;
+    asks : Level.t list ;
   }
 
   val get :
-    ?limit:int -> string -> (Cohttp.Response.t * t) Or_error.t Deferred.t
+    ?log:Log.t -> ?limit:int ->
+    string -> (Cohttp.Response.t * t) Or_error.t Deferred.t
 end

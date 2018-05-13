@@ -1,7 +1,16 @@
 (jbuild_version 1)
 
+(executable
+ ((name        depth)
+  (public_name binance-depth)
+  (package     binance_ws)
+  (modules     (Depth))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+  (libraries (ws rest alcotest-async))))
+
 (executables
  ((names        (test))
+  (modules      (Test))
   (libraries (ws rest alcotest-async))))
 
 (alias

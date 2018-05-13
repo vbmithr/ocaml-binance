@@ -6,10 +6,11 @@ type topic =
   | Trade
   | Depth
 
-type stream = {
+type stream = private {
   topic : topic ;
   symbol : string ;
 }
+val create_stream : topic:topic -> symbol:string -> stream
 val stream_of_string : string -> stream
 
 type event =

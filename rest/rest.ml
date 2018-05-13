@@ -96,8 +96,8 @@ let call
 module Depth = struct
   type t = {
     last_update_id : int ;
-    bids : Depth.level list ;
-    asks : Depth.level list ;
+    bids : Level.t list ;
+    asks : Level.t list ;
   }
 
   let encoding =
@@ -107,14 +107,14 @@ module Depth = struct
       (fun (last_update_id, bids, asks) -> { last_update_id ; bids ; asks })
       (obj3
          (req "lastUpdateId" int)
-         (req "bids" (list Depth.level_encoding))
-         (req "asks" (list Depth.level_encoding)))
+         (req "bids" (list Level.encoding))
+         (req "asks" (list Level.encoding)))
 
-  let get ?(limit=100) symbol =
+  let get ?log ?(limit=100) symbol =
     if not (List.mem ~equal:Int.equal [5; 10; 20; 50; 100; 500; 1000] limit) then
       invalid_argf "Depth.get: invalid limit %d, must belong to [5; \
                     10; 20; 50; 100; 500; 1000]" limit () ;
-    call ~params:["symbol", [symbol] ;
+    call ?log ~params:["symbol", [String.uppercase symbol] ;
                   "limit", [string_of_int limit] ;
                  ] ~meth:`GET "api/v1/depth" >>|
     Or_error.map ~f:begin fun (resp, depth) ->
