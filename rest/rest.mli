@@ -22,7 +22,7 @@ module Depth : sig
 
   val get :
     ?buf:Bi_outbuf.t -> ?log:Log.t -> ?limit:int ->
-    string -> (Cohttp.Response.t * t) Or_error.t Deferred.t
+    string -> (t, BinanceError.t) Result.t Deferred.t
 end
 
 module User : sig
@@ -81,12 +81,12 @@ module User : sig
   val open_orders :
     ?buf:Bi_outbuf.t -> ?log:Log.t ->
     key:string -> secret:string -> string ->
-    (Cohttp.Response.t * OrderStatus.t list) Or_error.t Deferred.t
+    (OrderStatus.t list, BinanceError.t) Result.t Deferred.t
 
   val account_info :
     ?buf:Bi_outbuf.t -> ?log:Log.t ->
     key:string -> secret:string -> unit ->
-    (Cohttp.Response.t * AccountInfo.t) Or_error.t Deferred.t
+    (AccountInfo.t, BinanceError.t) Result.t Deferred.t
 
   val order :
     ?buf:Bi_outbuf.t ->
@@ -103,17 +103,17 @@ module User : sig
     ?clientOrdID:string ->
     ?stopPx:float ->
     ?icebergQty:float -> unit ->
-    (Cohttp.Response.t * OrderStatus.t option) Or_error.t Deferred.t
+    (OrderStatus.t option, BinanceError.t) Result.t Deferred.t
 
   module Stream : sig
     val start :
       ?buf:Bi_outbuf.t -> ?log:Log.t -> key:string -> unit ->
-      (Cohttp.Response.t * string) Or_error.t Deferred.t
+      (string, BinanceError.t) Result.t Deferred.t
     val renew :
       ?buf:Bi_outbuf.t -> ?log:Log.t -> key:string -> string ->
-      (Cohttp.Response.t * unit) Or_error.t Deferred.t
+      (unit, BinanceError.t) Result.t Deferred.t
     val close :
       ?buf:Bi_outbuf.t -> ?log:Log.t -> key:string -> string ->
-      (Cohttp.Response.t * unit) Or_error.t Deferred.t
+      (unit, BinanceError.t) Result.t Deferred.t
   end
 end

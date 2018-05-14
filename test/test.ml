@@ -24,27 +24,29 @@ let wrap ?(speed=`Quick) n f =
   Alcotest_async.test_case n speed begin fun () ->
     f () >>= function
     | Ok _ -> Deferred.unit
-    | Error err -> failwith (Error.to_string_hum err)
+    | Error err ->
+      let msg = (Rest.BinanceError.to_string err) in
+      printf "%s" msg ;
+      failwith msg
   end
 
 let rest = [
   wrap "get" (fun () -> Rest.Depth.get ~limit:5 "BNBBTC") ;
   wrap "user" begin fun () ->
-    Rest.User.Stream.start ~key:cfg.key () >>|
-    Or_error.map ~f:begin fun (_resp, listenKey) ->
-      Rest.User.Stream.close ~key:cfg.key listenKey
-    end
+    let open Deferred.Result.Monad_infix in
+    Rest.User.Stream.start ~key:cfg.key () >>=
+    Rest.User.Stream.close ~key:cfg.key
   end ;
   wrap "open_orders" begin fun () ->
     Rest.User.open_orders ~key:cfg.key ~secret:cfg.secret "BNBBTC"
   end ;
   wrap "account_info" begin fun () ->
-    Rest.User.account_info ~key:cfg.key ~secret:cfg.secret () >>|
-    Or_error.map ~f:begin fun (_resp, ai) ->
-      printf "%s" (Rest.User.AccountInfo.to_string ai)
-    end
+    let open Deferred.Result.Monad_infix in
+    Rest.User.account_info ~key:cfg.key ~secret:cfg.secret () >>| fun ai ->
+    printf "%s" (Rest.User.AccountInfo.to_string ai)
   end ;
   wrap "fake_trade" begin fun () ->
+    let open Deferred.Result.Monad_infix in
     Rest.User.order
       ~log:(Lazy.force log)
       ~dry_run:true
@@ -53,10 +55,8 @@ let rest = [
       ~side:`Buy
       ~kind:OrderType.Market
       ~qty:2. () >>|
-    Or_error.map ~f:begin fun (_resp, ordStatus) ->
-      Option.iter ordStatus ~f:(fun ordStatus ->
-          printf "%s" (Rest.User.OrderStatus.to_string ordStatus))
-    end
+    Option.iter ~f:(fun ordStatus ->
+        printf "%s" (Rest.User.OrderStatus.to_string ordStatus))
   end
 
 ]

@@ -96,23 +96,26 @@ let call
     Option.iter log (fun log -> Log.debug log "-> %s" body_str) ;
     let status = Response.status resp in
     let status_code = C.Code.code_of_status status in
-    if C.Code.is_success status_code then
-      return (resp, Yojson.Safe.from_string ?buf body_str)
-    else if C.Code.is_server_error status_code then begin
+    if C.Code.is_server_error status_code then begin
       let status_code_str = C.Code.string_of_status status in
       Option.iter log ~f:begin fun log ->
         Log.error log "%s %s: %s" (C.Code.string_of_method meth) path status_code_str
       end ;
       Clock_ns.after span >>= fun () ->
       if try_id >= max_tries then
-        failwithf "%s %s: %s" (C.Code.string_of_method meth) path status_code_str ()
+        return (resp, Yojson.Safe.from_string ?buf body_str)
       else inner_exn @@ succ try_id
     end
     else
-      failwithf "%s: %s %s"
-        (Uri.to_string url) (C.Code.string_of_status status) body_str ()
+      return (resp, Yojson.Safe.from_string ?buf body_str)
   in
-  Monitor.try_with_or_error ?extract_exn (fun () -> inner_exn 0)
+  inner_exn 0
+
+let destruct_resp enc (resp, json) =
+  if Cohttp.(Code.is_error (Code.code_of_status resp.Response.status)) then
+    Error (Yojson_repr.destruct_safe BinanceError.encoding json)
+  else
+    Ok (Yojson_repr.destruct_safe enc json)
 
 module Depth = struct
   type t = {
@@ -137,10 +140,8 @@ module Depth = struct
                     10; 20; 50; 100; 500; 1000]" limit () ;
     call ?buf ?log ~params:["symbol", [String.uppercase symbol] ;
                   "limit", [string_of_int limit] ;
-                 ] ~meth:`GET "api/v1/depth" >>|
-    Or_error.map ~f:begin fun (resp, depth) ->
-      resp, Yojson_repr.destruct_safe encoding depth
-    end
+                           ] ~meth:`GET "api/v1/depth" >>|
+    destruct_resp encoding
 end
 
 module User = struct
@@ -306,30 +307,26 @@ module User = struct
         Option.map stopPx (fun p -> "stopPrice", [Printf.sprintf "%.6f" p]) ;
         Option.map icebergQty (fun q -> "icebergQty", [Printf.sprintf "%.6f" q]) ;
       ] in
+    let enc =
+      let open Json_encoding in
+      union [
+        case empty (function _ -> None) (function () -> None) ;
+        case OrderStatus.order_response_encoding
+          Fn.id (fun orderStatus -> Some orderStatus) ;
+      ] in
     call ?buf ?log ~meth:`POST ~key ~secret ~params
       ("api/v3/order" ^ if dry_run then "/test" else "") >>|
-    Or_error.map ~f:begin fun (resp, ordStatus) ->
-      resp,
-      match dry_run with
-      | true -> None
-      | false -> Some (Yojson_repr.destruct_safe
-                         OrderStatus.order_response_encoding ordStatus)
-    end
+      destruct_resp enc
 
   let open_orders ?buf ?log ~key ~secret symbol =
     call ?buf ?log ~meth:`GET ~key ~secret ~params:[
       "symbol", [symbol] ;
     ] "api/v3/openOrders" >>|
-    Or_error.map ~f:begin fun (resp, listenKey) ->
-      resp, Yojson_repr.destruct_safe
-        (Json_encoding.list OrderStatus.encoding) listenKey
-    end
+    destruct_resp (Json_encoding.list OrderStatus.encoding)
 
   let account_info ?buf ?log ~key ~secret () =
     call ?buf ?log ~meth:`GET ~key ~secret "api/v3/account" >>|
-    Or_error.map ~f:begin fun (resp, listenKey) ->
-      resp, Yojson_repr.destruct_safe AccountInfo.encoding listenKey
-    end
+    destruct_resp AccountInfo.encoding
 
   module Stream = struct
     let encoding =
@@ -338,22 +335,16 @@ module User = struct
 
     let start ?buf ?log ~key () =
       call ?buf ?log ~meth:`POST ~key "api/v1/userDataStream" >>|
-      Or_error.map ~f:begin fun (resp, listenKey) ->
-        resp, Yojson_repr.destruct_safe encoding listenKey
-      end
+      destruct_resp encoding
 
     let renew ?buf ?log ~key listenKey =
       call ?buf ?log ~meth:`PUT ~key
         ~params:["listenKey", [listenKey]] "api/v1/userDataStream" >>|
-      Or_error.map ~f:begin fun (resp, empty) ->
-        resp, Yojson_repr.destruct_safe Json_encoding.empty empty
-      end
+      destruct_resp Json_encoding.empty
 
     let close ?buf ?log ~key listenKey =
       call ?buf ?log ~meth:`DELETE ~key
         ~params:["listenKey", [listenKey]] "api/v1/userDataStream" >>|
-      Or_error.map ~f:begin fun (resp, empty) ->
-        resp, Yojson_repr.destruct_safe Json_encoding.empty empty
-      end
+      destruct_resp Json_encoding.empty
   end
 end

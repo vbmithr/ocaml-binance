@@ -82,7 +82,7 @@ let load_books b a =
 
 let init_orderbook symbol =
   Rest.Depth.get ~log:(Lazy.force log) ~limit:100 symbol >>|
-  Result.map ~f:begin fun (resp, { Rest.Depth.last_update_id ; bids ; asks }) ->
+  Result.map ~f:begin fun { Rest.Depth.last_update_id ; bids ; asks } ->
     let bids, asks = load_books bids asks in
     last_update_id, bids, asks
   end
@@ -105,7 +105,9 @@ let main symbol =
     wait_n_events c 10 >>= fun () ->
     begin
       init_orderbook symbol >>= function
-      | Error err -> Error.raise err
+      | Error err ->
+        printf "%s" (Rest.BinanceError.to_string err) ;
+        failwith "Init orderbook failed"
       | Ok snapshot ->
         printf "Got snapshot for %s" symbol ;
         Ivar.fill init snapshot ;
