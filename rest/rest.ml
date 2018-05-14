@@ -12,7 +12,7 @@ let ssl_config =
     ~hostname:"api.binance.com"
     ()
 
-module HTTPError = struct
+module BinanceError = struct
   type t = {
     code : int ;
     msg : string ;
@@ -26,6 +26,21 @@ module HTTPError = struct
       (obj2
          (req "code" int)
          (req "msg" string))
+
+  let or_error enc =
+    let open Json_encoding in
+    union [
+      case encoding
+        (function Ok _ -> None | Error e -> Some e)
+        (function e -> Error e) ;
+      case enc
+        (function Ok v -> Some v | Error _ -> None)
+        (function v -> Ok v) ;
+    ]
+
+  let pp ppf t =
+    Json_repr.(pp (module Yojson) ppf (Yojson_repr.construct encoding t))
+  let to_string = Fmt.to_to_string pp
 end
 
 let call
@@ -78,6 +93,7 @@ let call
   let rec inner_exn try_id =
     call () >>= fun (resp, body) ->
     Body.to_string body >>= fun body_str ->
+    Option.iter log (fun log -> Log.debug log "-> %s" body_str) ;
     let status = Response.status resp in
     let status_code = C.Code.code_of_status status in
     if C.Code.is_success status_code then
@@ -206,6 +222,41 @@ module User = struct
       isWorking : bool ;
     }
 
+    let base_status_obj =
+      let open Json_encoding in
+      obj10
+        (req "symbol" string)
+        (req "orderId" int)
+        (req "clientOrderId" string)
+        (req "price" float_as_string)
+        (req "origQty" float_as_string)
+        (req "executedQty" float_as_string)
+        (req "status" OrderStatus.encoding)
+        (req "timeInForce" TimeInForce.encoding)
+        (req "type" OrderType.encoding)
+        (req "side" Side.encoding)
+
+    let order_response_encoding =
+      let open Json_encoding in
+      conv
+        (fun { symbol ; orderId ; clientOrderId ;
+               price ; origQty ; executedQty ;
+               ordStatus ; timeInForce ; ordType ;
+               side ; stopPrice ; icebergQty ;
+               time ; isWorking } ->
+          ((symbol, orderId, clientOrderId, price, origQty,
+            executedQty, ordStatus, timeInForce, ordType, side),
+           time))
+        (fun ((symbol, orderId, clientOrderId, price, origQty,
+               executedQty, ordStatus, timeInForce, ordType, side),
+              time) -> { symbol ; orderId ; clientOrderId ;
+                         price ; origQty ; executedQty ;
+                         ordStatus ; timeInForce ; ordType ;
+                         side ; stopPrice = 0.; icebergQty = 0.;
+                         time ; isWorking = false})
+        (merge_objs base_status_obj
+           (obj1 (req "transactTime" Ptime.float_encoding)))
+
     let encoding =
       let open Json_encoding in
       conv
@@ -225,24 +276,45 @@ module User = struct
             ordStatus ; timeInForce ; ordType ;
             side ; stopPrice ; icebergQty ;
             time ; isWorking })
-        (merge_objs
-           (obj10
-              (req "symbol" string)
-              (req "orderId" int)
-              (req "clientOrderId" string)
-              (req "price" float_as_string)
-              (req "origQty" float_as_string)
-              (req "executedQty" float_as_string)
-              (req "status" OrderStatus.encoding)
-              (req "timeInForce" TimeInForce.encoding)
-              (req "type" OrderType.encoding)
-              (req "side" Side.encoding))
+        (merge_objs base_status_obj
            (obj4
               (req "stopPrice" float_as_string)
               (req "icebergQty" float)
               (req "time" Ptime.float_encoding)
               (req "isWorking" bool)))
+
+    let pp ppf t =
+      Json_repr.(pp (module Yojson) ppf (Yojson_repr.construct encoding t))
+    let to_string = Fmt.to_to_string pp
   end
+
+  let order
+      ?buf ?log
+      ?(dry_run=false)
+      ~key ~secret ~symbol
+      ~side ~kind ?timeInForce
+      ~qty ?price ?clientOrdID
+      ?stopPx ?icebergQty () =
+    let params = List.filter_opt [
+        Some ("symbol", [symbol]) ;
+        Some ("side", [Side.to_string side]) ;
+        Some ("type", [OrderType.to_string kind]) ;
+        Option.map timeInForce(fun tif -> "timeInForce", [TimeInForce.to_string tif]) ;
+        Some ("quantity", [Printf.sprintf "%.6f" qty]) ;
+        Option.map price (fun p -> "price", [Printf.sprintf "%.6f" p]) ;
+        Option.map clientOrdID (fun id -> "newClientOrderId", [id]) ;
+        Option.map stopPx (fun p -> "stopPrice", [Printf.sprintf "%.6f" p]) ;
+        Option.map icebergQty (fun q -> "icebergQty", [Printf.sprintf "%.6f" q]) ;
+      ] in
+    call ?buf ?log ~meth:`POST ~key ~secret ~params
+      ("api/v3/order" ^ if dry_run then "/test" else "") >>|
+    Or_error.map ~f:begin fun (resp, ordStatus) ->
+      resp,
+      match dry_run with
+      | true -> None
+      | false -> Some (Yojson_repr.destruct_safe
+                         OrderStatus.order_response_encoding ordStatus)
+    end
 
   let open_orders ?buf ?log ~key ~secret symbol =
     call ?buf ?log ~meth:`GET ~key ~secret ~params:[

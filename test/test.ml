@@ -43,7 +43,22 @@ let rest = [
     Or_error.map ~f:begin fun (_resp, ai) ->
       printf "%s" (Rest.User.AccountInfo.to_string ai)
     end
+  end ;
+  wrap "fake_trade" begin fun () ->
+    Rest.User.order
+      ~log:(Lazy.force log)
+      ~dry_run:true
+      ~key:cfg.key ~secret:cfg.secret
+      ~symbol:"BNBBTC"
+      ~side:`Buy
+      ~kind:OrderType.Market
+      ~qty:2. () >>|
+    Or_error.map ~f:begin fun (_resp, ordStatus) ->
+      Option.iter ordStatus ~f:(fun ordStatus ->
+          printf "%s" (Rest.User.OrderStatus.to_string ordStatus))
+    end
   end
+
 ]
 
 let () =

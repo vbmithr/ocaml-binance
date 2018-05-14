@@ -2,6 +2,17 @@ open Core
 open Async
 open Binance
 
+module BinanceError : sig
+  type t = {
+    code : int ;
+    msg : string ;
+  }
+
+  val encoding : t Json_encoding.encoding
+  val pp : t Fmt.t
+  val to_string : t -> string
+end
+
 module Depth : sig
   type t = {
     last_update_id : int ;
@@ -61,7 +72,10 @@ module User : sig
       isWorking : bool ;
     }
 
+    val order_response_encoding : t Json_encoding.encoding
     val encoding : t Json_encoding.encoding
+    val pp : t Fmt.t
+    val to_string : t -> string
   end
 
   val open_orders :
@@ -73,6 +87,23 @@ module User : sig
     ?buf:Bi_outbuf.t -> ?log:Log.t ->
     key:string -> secret:string -> unit ->
     (Cohttp.Response.t * AccountInfo.t) Or_error.t Deferred.t
+
+  val order :
+    ?buf:Bi_outbuf.t ->
+    ?log:Log.t ->
+    ?dry_run:bool ->
+    key:string ->
+    secret:string ->
+    symbol:string ->
+    side:Side.t ->
+    kind:OrderType.t ->
+    ?timeInForce:TimeInForce.t ->
+    qty:float ->
+    ?price:float ->
+    ?clientOrdID:string ->
+    ?stopPx:float ->
+    ?icebergQty:float -> unit ->
+    (Cohttp.Response.t * OrderStatus.t option) Or_error.t Deferred.t
 
   module Stream : sig
     val start :
