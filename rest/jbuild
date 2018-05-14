@@ -6,4 +6,4 @@
   (synopsis "REST API for Binance")
   ;; (inline_tests)
   ;; (preprocess (pps (ppx_inline_test)))
-  (libraries (binance core async cohttp-async yojson))))
+  (libraries (binance core async cohttp-async yojson digestif.c hex))))

@@ -2,15 +2,6 @@ open Core
 open Async
 open Binance
 
-module Yojson_repr = struct
-  include Json_encoding.Make(Json_repr.Yojson)
-  let destruct_safe encoding v =
-    try destruct encoding v with exn ->
-      Format.eprintf "%a@."
-        (fun ppf exn -> Json_encoding.print_error ppf exn) exn ;
-      raise exn
-end
-
 let scheme = "https"
 let host = "stream.binance.com"
 let port = 9443

@@ -5,4 +5,4 @@
   (public_name binance)
   (synopsis "Binance API types")
   (preprocess (pps (ppx_sexp_conv)))
-  (libraries (base fmt ocplib-json-typed ptime))))
+  (libraries (base fmt ocplib-json-typed ptime yojson))))
