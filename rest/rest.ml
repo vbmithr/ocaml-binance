@@ -7,9 +7,8 @@ open Binance
 
 let url = Uri.make ~scheme:"https" ~host:"api.binance.com" ()
 let ssl_config =
-  Conduit_async_ssl.Cfg.create
+  Conduit_async_ssl.Ssl_config.configure
     ~name:"Binance REST"
-    ~hostname:"api.binance.com"
     ()
 
 module BinanceError = struct

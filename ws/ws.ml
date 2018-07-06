@@ -69,7 +69,7 @@ let event_encoding =
        (req "data" event_encoding))
 
 let ssl_config =
-  Conduit_async_ssl.Cfg.create ~name:"Binance WS" ()
+  Conduit_async_ssl.Ssl_config.configure ~name:"Binance WS" ()
 
 let open_connection ?(buf=Bi_outbuf.create 4096) ?connected ?log streams =
   let uri = Uri.with_path uri "stream" in
@@ -89,7 +89,7 @@ let open_connection ?(buf=Bi_outbuf.create 4096) ?connected ?log streams =
         Log.info log "[WS] connecting to %s" uri_str);
     Socket.(setopt s Opt.nodelay true);
     (if scheme = "https" || scheme = "wss" then
-       Conduit_async_ssl.(ssl_connect ~cfg:ssl_config r w)
+       Conduit_async_ssl.ssl_connect ssl_config r w
      else return (r, w)) >>= fun (ssl_r, ssl_w) ->
     let ws_r, ws_w =
       Websocket_async.client_ez ?log
