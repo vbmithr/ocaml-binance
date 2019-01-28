@@ -1,11 +1,14 @@
 open Core
 open Async
+
+open Bs_devkit
 open Binance
 
 let scheme = "https"
 let host = "stream.binance.com"
 let port = 9443
 let uri = Uri.make ~scheme ~host ~port ()
+let src = Logs.Src.create "binance.ws"
 
 type topic =
   | Trade
@@ -68,36 +71,31 @@ let event_encoding =
        (req "stream" string)
        (req "data" event_encoding))
 
-let ssl_config =
-  Conduit_async_ssl.Ssl_config.configure ~name:"Binance WS" ()
+let ssl_config = Conduit_async.Ssl.configure ~name:"Binance WS" ()
 
-let open_connection ?(buf=Bi_outbuf.create 4096) ?connected ?log streams =
+let open_connection ?(buf=Bi_outbuf.create 4096) ?connected streams =
   let uri = Uri.with_path uri "stream" in
   let uri = Uri.with_query uri ["streams", [path_of_streams streams]] in
-  let uri_str = Uri.to_string uri in
-  let endp = Host_and_port.create ~host ~port in
   let client_r, client_w = Pipe.create () in
   let cleanup r w ws_r ws_w =
-    Option.iter log ~f:(fun log ->
-        Log.debug log "[WS] post-disconnection cleanup") ;
+    Logs_async.debug ~src begin fun m ->
+      m "post-disconnection cleanup"
+    end >>= fun () ->
     Pipe.close ws_w ;
     Pipe.close_read ws_r ;
     Deferred.all_unit [Reader.close r ; Writer.close w ] ;
   in
-  let tcp_fun s r w =
-    Option.iter log ~f:(fun log ->
-        Log.info log "[WS] connecting to %s" uri_str);
-    Socket.(setopt s Opt.nodelay true);
-    (if scheme = "https" || scheme = "wss" then
-       Conduit_async_ssl.ssl_connect ssl_config r w
-     else return (r, w)) >>= fun (ssl_r, ssl_w) ->
+  let tcp_fun (r, w) =
+    Logs_async.info ~src begin fun m ->
+      m "connecting to %a" Uri.pp_hum uri
+    end >>= fun () ->
     let ws_r, ws_w =
-      Websocket_async.client_ez ?log
-        ~heartbeat:(Time_ns.Span.of_int_sec 25) uri s ssl_r ssl_w in
+      Websocket_async.client_ez
+        ~heartbeat:(Time_ns.Span.of_int_sec 25) uri r w in
     don't_wait_for begin
       Deferred.all_unit
         [ Reader.close_finished r ; Writer.close_finished w ] >>= fun () ->
-      cleanup ssl_r ssl_w ws_r ws_w
+      cleanup r w ws_r ws_w
     end ;
     Option.iter connected ~f:(fun c -> Condition.broadcast c ());
     Pipe.transfer ws_r client_w ~f:begin fun str ->
@@ -109,13 +107,17 @@ let open_connection ?(buf=Bi_outbuf.create 4096) ?connected ?log streams =
       ~name:"open_connection"
       ~extract_exn:false
       begin fun () ->
-        Tcp.(with_connection (Where_to_connect.of_host_and_port endp) tcp_fun)
-      end >>| function
-    | Ok () -> Option.iter log ~f:(fun log ->
-        Log.error log "[WS] connection to %s terminated" uri_str);
-    | Error err -> Option.iter log ~f:(fun log ->
-        Log.error log "[WS] connection to %s raised %s"
-          uri_str (Error.to_string_hum err))
+        addr_of_uri uri >>= fun addr ->
+        Conduit_async.V2.connect addr >>= tcp_fun
+      end >>= function
+    | Ok () ->
+      Logs_async.err ~src begin fun m ->
+        m "connection to %a terminated" Uri.pp_hum uri
+      end
+    | Error err ->
+      Logs_async.err ~src begin fun m ->
+        m "connection to %a raised %a" Uri.pp_hum uri Error.pp err
+      end
   end >>= fun () ->
     if Pipe.is_closed client_r then Deferred.unit
     else Clock_ns.after @@ Time_ns.Span.of_int_sec 10 >>= loop

@@ -1,0 +1,13 @@
+(executable
+ (name        depth)
+ (public_name binance-depth)
+ (package     binance_ws)
+ (modules     Depth)
+ (preprocess (pps ppx_let))
+ (libraries logs-async-reporter ws rest alcotest-async))
+
+(test
+ (name       test)
+ (modules    test)
+ (preprocess (pps ppx_sexp_conv))
+ (libraries ws rest alcotest-async))

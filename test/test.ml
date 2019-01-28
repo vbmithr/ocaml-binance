@@ -1,6 +1,5 @@
 open Core
 open Async
-open Log.Global
 
 open Binance
 
@@ -48,7 +47,6 @@ let rest = [
   wrap "fake_trade" begin fun () ->
     let open Deferred.Result.Monad_infix in
     Rest.User.order
-      ~log:(Lazy.force log)
       ~dry_run:true
       ~key:cfg.key ~secret:cfg.secret
       ~symbol:"BNBBTC"

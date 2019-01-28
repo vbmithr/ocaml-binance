@@ -20,6 +20,5 @@ type event =
 val open_connection :
   ?buf:Bi_outbuf.t ->
   ?connected:unit Condition.t ->
-  ?log:Log.t ->
   stream list ->
   event Pipe.Reader.t

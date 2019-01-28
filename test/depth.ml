@@ -1,7 +1,8 @@
 open Core
 open Async
 open Binance
-open Log.Global
+
+let src = Logs.Src.create "binance.test.depth"
 
 let drop_events_before depth last_update_id =
   let _before, after =
@@ -19,7 +20,7 @@ let merge_diffs b a { Depth.bids ; Depth.asks } =
   b, a
 
 let orderbook symbol init c =
-  let evts = Ws.open_connection ~log:(Lazy.force log)
+  let evts = Ws.open_connection
       Ws.[create_stream ~topic:Depth ~symbol] in
   Pipe.fold evts
     ~init:(
@@ -81,7 +82,7 @@ let load_books b a =
   b, a
 
 let init_orderbook symbol =
-  Rest.Depth.get ~log:(Lazy.force log) ~limit:100 symbol >>|
+  Rest.Depth.get ~limit:100 symbol >>|
   Result.map ~f:begin fun { Rest.Depth.last_update_id ; bids ; asks } ->
     let bids, asks = load_books bids asks in
     last_update_id, bids, asks
@@ -89,7 +90,7 @@ let init_orderbook symbol =
 
 let wait_n_events c n =
   let rec inner n =
-    printf "%d" n ;
+    Logs_async.app ~src (fun m -> m "wait for %d events" n) >>= fun () ->
     if n > 0 then
       Condition.wait c >>= fun _ ->
       inner (pred n)
@@ -98,38 +99,37 @@ let wait_n_events c n =
   in inner n
 
 let main symbol =
-  stage begin fun `Scheduler_started ->
-    let init = Ivar.create () in
-    let c = Condition.create () in
-    don't_wait_for (Deferred.ignore (orderbook symbol init c)) ;
-    wait_n_events c 10 >>= fun () ->
-    begin
-      init_orderbook symbol >>= function
-      | Error err ->
-        printf "%s" (Rest.BinanceError.to_string err) ;
-        failwith "Init orderbook failed"
-      | Ok snapshot ->
-        printf "Got snapshot for %s" symbol ;
-        Ivar.fill init snapshot ;
-        let rec inner () =
-          Condition.wait c >>= fun (d, bids, asks) ->
-          begin if Option.is_none d then
-              printf "Order books initialized %s" symbol
-            else
-              printf "Order books updated"
-          end ;
-          inner ()
-        in inner ()
-    end
+  let init = Ivar.create () in
+  let c = Condition.create () in
+  don't_wait_for (Deferred.ignore (orderbook symbol init c)) ;
+  wait_n_events c 10 >>= fun () ->
+  begin
+    init_orderbook symbol >>= function
+    | Error err ->
+      Logs_async.app ~src (fun m -> m "%a" Rest.BinanceError.pp err) >>= fun () ->
+      failwith "Init orderbook failed"
+    | Ok snapshot ->
+      Logs_async.app ~src (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
+      Ivar.fill init snapshot ;
+      let rec inner () =
+        Condition.wait c >>= fun (d, bids, asks) ->
+        begin if Option.is_none d then
+            Logs_async.app ~src (fun m -> m "Order books initialized %s" symbol)
+          else
+            Logs_async.app ~src (fun m -> m "Order books updated")
+        end >>= fun () ->
+        inner ()
+      in inner ()
   end
 
 let command =
-  Command.Staged.async ~summary:"Binance depth" begin
+  Command.async ~summary:"Binance depth" begin
     let open Command.Let_syntax in
     [%map_open
       let symbol = anon ("symbol" %: string)
-      and () = set_level_via_param () in
+      and () = Logs_async_reporter.set_level_via_param None in
       fun () ->
+        Logs.set_reporter (Logs_async_reporter.reporter ()) ;
         main symbol
     ] end
 

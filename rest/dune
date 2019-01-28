@@ -1,0 +1,7 @@
+(library
+ (name        rest)
+ (public_name binance_rest)
+ (synopsis "REST API for Binance")
+  ;; (inline_tests)
+  ;; (preprocess (pps (ppx_inline_test)))
+ (libraries logs-async binance core async conduit-async cohttp-async yojson digestif.c hex))

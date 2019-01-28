@@ -21,7 +21,7 @@ module Depth : sig
   }
 
   val get :
-    ?buf:Bi_outbuf.t -> ?log:Log.t -> ?limit:int ->
+    ?buf:Bi_outbuf.t -> ?limit:int ->
     string -> (t, BinanceError.t) Result.t Deferred.t
 end
 
@@ -79,18 +79,17 @@ module User : sig
   end
 
   val open_orders :
-    ?buf:Bi_outbuf.t -> ?log:Log.t ->
+    ?buf:Bi_outbuf.t ->
     key:string -> secret:string -> string ->
     (OrderStatus.t list, BinanceError.t) Result.t Deferred.t
 
   val account_info :
-    ?buf:Bi_outbuf.t -> ?log:Log.t ->
+    ?buf:Bi_outbuf.t ->
     key:string -> secret:string -> unit ->
     (AccountInfo.t, BinanceError.t) Result.t Deferred.t
 
   val order :
     ?buf:Bi_outbuf.t ->
-    ?log:Log.t ->
     ?dry_run:bool ->
     key:string ->
     secret:string ->
@@ -107,13 +106,13 @@ module User : sig
 
   module Stream : sig
     val start :
-      ?buf:Bi_outbuf.t -> ?log:Log.t -> key:string -> unit ->
+      ?buf:Bi_outbuf.t -> key:string -> unit ->
       (string, BinanceError.t) Result.t Deferred.t
     val renew :
-      ?buf:Bi_outbuf.t -> ?log:Log.t -> key:string -> string ->
+      ?buf:Bi_outbuf.t -> key:string -> string ->
       (unit, BinanceError.t) Result.t Deferred.t
     val close :
-      ?buf:Bi_outbuf.t -> ?log:Log.t -> key:string -> string ->
+      ?buf:Bi_outbuf.t -> key:string -> string ->
       (unit, BinanceError.t) Result.t Deferred.t
   end
 end

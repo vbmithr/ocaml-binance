@@ -6,10 +6,8 @@ open Cohttp_async
 open Binance
 
 let url = Uri.make ~scheme:"https" ~host:"api.binance.com" ()
-let ssl_config =
-  Conduit_async_ssl.Ssl_config.configure
-    ~name:"Binance REST"
-    ()
+let ssl_config = Conduit_async.Ssl.configure ~name:"Binance REST" ()
+let src = Logs.Src.create "binance.rest"
 
 module BinanceError = struct
   type t = {
@@ -45,7 +43,6 @@ end
 let call
     ?extract_exn
     ?buf
-    ?log
     ?(span=Time_ns.Span.of_int_sec 1)
     ?(max_tries=3)
     ?(params=[])
@@ -74,9 +71,8 @@ let call
       let ps_encoded =
         Bytes.unsafe_of_string_promise_no_mutation
           (Uri.encoded_of_query params) in
-      let `Hex signature =
-        Hex.of_string (Bytes.unsafe_to_string
-                         (Digestif.SHA256.Bytes.hmac ~key ps_encoded)) in
+      let signature =
+        Digestif.SHA256.(hmac_bytes ~key ps_encoded |> to_hex) in
       List.rev (("signature", [signature]) :: List.rev params)
     end in
   let body = match meth with
@@ -92,14 +88,14 @@ let call
   let rec inner_exn try_id =
     call () >>= fun (resp, body) ->
     Body.to_string body >>= fun body_str ->
-    Option.iter log (fun log -> Log.debug log "-> %s" body_str) ;
+    Logs_async.debug ~src (fun m -> m "-> %s" body_str) >>= fun () ->
     let status = Response.status resp in
     let status_code = C.Code.code_of_status status in
     if C.Code.is_server_error status_code then begin
       let status_code_str = C.Code.string_of_status status in
-      Option.iter log ~f:begin fun log ->
-        Log.error log "%s %s: %s" (C.Code.string_of_method meth) path status_code_str
-      end ;
+      Logs_async.err ~src begin fun m ->
+        m "%s %s: %s" (C.Code.string_of_method meth) path status_code_str
+      end >>= fun () ->
       Clock_ns.after span >>= fun () ->
       if try_id >= max_tries then
         return (resp, Yojson.Safe.from_string ?buf body_str)
@@ -133,11 +129,11 @@ module Depth = struct
          (req "bids" (list Level.encoding))
          (req "asks" (list Level.encoding)))
 
-  let get ?buf ?log ?(limit=100) symbol =
+  let get ?buf ?(limit=100) symbol =
     if not (List.mem ~equal:Int.equal [5; 10; 20; 50; 100; 500; 1000] limit) then
       invalid_argf "Depth.get: invalid limit %d, must belong to [5; \
                     10; 20; 50; 100; 500; 1000]" limit () ;
-    call ?buf ?log ~params:["symbol", [String.uppercase symbol] ;
+    call ?buf ~params:["symbol", [String.uppercase symbol] ;
                   "limit", [string_of_int limit] ;
                            ] ~meth:`GET "api/v1/depth" >>|
     destruct_resp encoding
@@ -289,7 +285,7 @@ module User = struct
   end
 
   let order
-      ?buf ?log
+      ?buf
       ?(dry_run=false)
       ~key ~secret ~symbol
       ~side ~kind ?timeInForce
@@ -313,18 +309,18 @@ module User = struct
         case OrderStatus.order_response_encoding
           Fn.id (fun orderStatus -> Some orderStatus) ;
       ] in
-    call ?buf ?log ~meth:`POST ~key ~secret ~params
+    call ?buf ~meth:`POST ~key ~secret ~params
       ("api/v3/order" ^ if dry_run then "/test" else "") >>|
       destruct_resp enc
 
-  let open_orders ?buf ?log ~key ~secret symbol =
-    call ?buf ?log ~meth:`GET ~key ~secret ~params:[
+  let open_orders ?buf ~key ~secret symbol =
+    call ?buf ~meth:`GET ~key ~secret ~params:[
       "symbol", [symbol] ;
     ] "api/v3/openOrders" >>|
     destruct_resp (Json_encoding.list OrderStatus.encoding)
 
-  let account_info ?buf ?log ~key ~secret () =
-    call ?buf ?log ~meth:`GET ~key ~secret "api/v3/account" >>|
+  let account_info ?buf ~key ~secret () =
+    call ?buf ~meth:`GET ~key ~secret "api/v3/account" >>|
     destruct_resp AccountInfo.encoding
 
   module Stream = struct
@@ -332,17 +328,17 @@ module User = struct
       let open Json_encoding in
       conv Fn.id Fn.id (obj1 (req "listenKey" string))
 
-    let start ?buf ?log ~key () =
-      call ?buf ?log ~meth:`POST ~key "api/v1/userDataStream" >>|
+    let start ?buf ~key () =
+      call ?buf ~meth:`POST ~key "api/v1/userDataStream" >>|
       destruct_resp encoding
 
-    let renew ?buf ?log ~key listenKey =
-      call ?buf ?log ~meth:`PUT ~key
+    let renew ?buf ~key listenKey =
+      call ?buf ~meth:`PUT ~key
         ~params:["listenKey", [listenKey]] "api/v1/userDataStream" >>|
       destruct_resp Json_encoding.empty
 
-    let close ?buf ?log ~key listenKey =
-      call ?buf ?log ~meth:`DELETE ~key
+    let close ?buf ~key listenKey =
+      call ?buf ~meth:`DELETE ~key
         ~params:["listenKey", [listenKey]] "api/v1/userDataStream" >>|
       destruct_resp Json_encoding.empty
   end

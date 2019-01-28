@@ -1,0 +1,14 @@
+(library
+ (name        ws)
+ (public_name binance_ws)
+ (synopsis "Binance Websocket API")
+ (modules Ws)
+ (libraries bs-devkit logs-async binance fmt yojson websocket-async))
+
+(executable
+ (name        console)
+ (public_name binance-console)
+ (preprocess (pps ppx_let))
+ (package      binance_ws)
+ (modules Console)
+ (libraries logs-async-reporter ws))
