@@ -12,7 +12,7 @@ let command =
       and () = Logs_async_reporter.set_level_via_param None in
       fun () ->
         Logs.set_reporter (Logs_async_reporter.reporter ()) ;
-        let evts = Ws.open_connection
+        let evts = Ws.connect
             (List.map ~f:Ws.stream_of_string streams) in
         Pipe.iter evts ~f:begin function
           | Trade t ->

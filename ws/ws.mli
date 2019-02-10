@@ -16,8 +16,14 @@ type event =
   | Trade of Trade.t
   | Depth of Depth.t
 
-val open_connection :
+val connect :
   ?buf:Bi_outbuf.t ->
   ?connected:unit Condition.t ->
   stream list ->
   event Pipe.Reader.t
+
+val with_connection :
+  ?buf:Bi_outbuf.t ->
+  ?connected:unit Condition.t ->
+  stream list ->
+  f:(event Pipe.Reader.t -> 'a Deferred.t) -> 'a Deferred.t

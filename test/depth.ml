@@ -20,7 +20,7 @@ let merge_diffs b a { Depth.bids ; Depth.asks ; _ } =
   b, a
 
 let orderbook symbol init c =
-  let evts = Ws.open_connection
+  let evts = Ws.connect
       Ws.[create_stream ~topic:Depth ~symbol] in
   Pipe.fold evts
     ~init:(
