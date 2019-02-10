@@ -9,6 +9,8 @@ module BinanceError : sig
   }
 
   val encoding : t Json_encoding.encoding
+  val or_error :
+    'a Json_encoding.encoding -> ('a, t) result Json_encoding.encoding
   val pp : t Fmt.t
   val to_string : t -> string
 end

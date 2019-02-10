@@ -6,7 +6,6 @@ open Cohttp_async
 open Binance
 
 let url = Uri.make ~scheme:"https" ~host:"api.binance.com" ()
-let ssl_config = Conduit_async.Ssl.configure ~name:"Binance REST" ()
 let src = Logs.Src.create "binance.rest"
 
 module BinanceError = struct
@@ -41,7 +40,6 @@ module BinanceError = struct
 end
 
 let call
-    ?extract_exn
     ?buf
     ?(span=Time_ns.Span.of_int_sec 1)
     ?(max_tries=3)
@@ -79,10 +77,10 @@ let call
     | `GET -> None
     | #C.Code.meth -> Some (Body.of_string (Uri.encoded_of_query params)) in
   let call () = match meth with
-    | `GET -> Client.get ~ssl_config ~headers (Uri.with_query url params)
-    | `POST -> Client.post ~ssl_config ~headers ~chunked:false ?body url
-    | `PUT -> Client.put ~ssl_config ~headers ~chunked:false ?body url
-    | `DELETE -> Client.delete ~ssl_config ~headers ~chunked:false ?body url
+    | `GET -> Client.get ~headers (Uri.with_query url params)
+    | `POST -> Client.post ~headers ~chunked:false ?body url
+    | `PUT -> Client.put ~headers ~chunked:false ?body url
+    | `DELETE -> Client.delete ~headers ~chunked:false ?body url
     | #C.Code.meth as m ->
       invalid_argf "Unsupported HTTP method %s" (C.Code.string_of_method m) () in
   let rec inner_exn try_id =
@@ -238,8 +236,8 @@ module User = struct
         (fun { symbol ; orderId ; clientOrderId ;
                price ; origQty ; executedQty ;
                ordStatus ; timeInForce ; ordType ;
-               side ; stopPrice ; icebergQty ;
-               time ; isWorking } ->
+               side ; stopPrice = _ ; icebergQty = _ ;
+               time ; isWorking = _ } ->
           ((symbol, orderId, clientOrderId, price, origQty,
             executedQty, ordStatus, timeInForce, ordType, side),
            time))
@@ -295,12 +293,12 @@ module User = struct
         Some ("symbol", [symbol]) ;
         Some ("side", [Side.to_string side]) ;
         Some ("type", [OrderType.to_string kind]) ;
-        Option.map timeInForce(fun tif -> "timeInForce", [TimeInForce.to_string tif]) ;
+        Option.map timeInForce ~f:(fun tif -> "timeInForce", [TimeInForce.to_string tif]) ;
         Some ("quantity", [Printf.sprintf "%.6f" qty]) ;
-        Option.map price (fun p -> "price", [Printf.sprintf "%.6f" p]) ;
-        Option.map clientOrdID (fun id -> "newClientOrderId", [id]) ;
-        Option.map stopPx (fun p -> "stopPrice", [Printf.sprintf "%.6f" p]) ;
-        Option.map icebergQty (fun q -> "icebergQty", [Printf.sprintf "%.6f" q]) ;
+        Option.map price ~f:(fun p -> "price", [Printf.sprintf "%.6f" p]) ;
+        Option.map clientOrdID ~f:(fun id -> "newClientOrderId", [id]) ;
+        Option.map stopPx ~f:(fun p -> "stopPrice", [Printf.sprintf "%.6f" p]) ;
+        Option.map icebergQty ~f:(fun q -> "icebergQty", [Printf.sprintf "%.6f" q]) ;
       ] in
     let enc =
       let open Json_encoding in

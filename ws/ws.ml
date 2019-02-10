@@ -1,7 +1,6 @@
 open Core
 open Async
 
-open Bs_devkit
 open Binance
 
 let scheme = "https"
@@ -18,7 +17,6 @@ let pp_topic ppf = function
   | Trade -> Format.pp_print_string ppf "trade"
   | Depth -> Format.pp_print_string ppf "depth"
 
-let string_of_topic = Fmt.to_to_string pp_topic
 let topic_of_string = function
   | "trade" -> Trade
   | "depth" -> Depth
@@ -71,8 +69,6 @@ let event_encoding =
        (req "stream" string)
        (req "data" event_encoding))
 
-let ssl_config = Conduit_async.Ssl.configure ~name:"Binance WS" ()
-
 let open_connection ?(buf=Bi_outbuf.create 4096) ?connected streams =
   let uri = Uri.with_path uri "stream" in
   let uri = Uri.with_query uri ["streams", [path_of_streams streams]] in
@@ -85,7 +81,7 @@ let open_connection ?(buf=Bi_outbuf.create 4096) ?connected streams =
     Pipe.close_read ws_r ;
     Deferred.all_unit [Reader.close r ; Writer.close w ] ;
   in
-  let tcp_fun (r, w) =
+  let tcp_fun (_s, r, w) =
     Logs_async.info ~src begin fun m ->
       m "connecting to %a" Uri.pp_hum uri
     end >>= fun () ->
@@ -107,8 +103,7 @@ let open_connection ?(buf=Bi_outbuf.create 4096) ?connected streams =
       ~name:"open_connection"
       ~extract_exn:false
       begin fun () ->
-        addr_of_uri uri >>= fun addr ->
-        Conduit_async.V2.connect addr >>= tcp_fun
+        Conduit_async.V3.connect_uri uri >>= tcp_fun
       end >>= function
     | Ok () ->
       Logs_async.err ~src begin fun m ->

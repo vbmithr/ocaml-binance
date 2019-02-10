@@ -6,16 +6,16 @@ let src = Logs.Src.create "binance.test.depth"
 
 let drop_events_before depth last_update_id =
   let _before, after =
-    Set.partition_tf depth ~f:(fun { Depth.final_update_id } ->
+    Set.partition_tf depth ~f:(fun { Depth.final_update_id ; _ } ->
         final_update_id <= last_update_id) in
   after
 
-let merge_diffs b a { Depth.bids ; Depth.asks } =
+let merge_diffs b a { Depth.bids ; Depth.asks ; _ } =
   let b = List.fold_left bids ~init:b ~f:begin fun acc { p ; q } ->
-      Map.(if q = 0. then remove acc p else set acc p q)
+      Map.(if q = 0. then remove acc p else set acc ~key:p ~data:q)
     end in
   let a = List.fold_left asks ~init:a ~f:begin fun acc { p ; q } ->
-      Map.(if q = 0. then remove acc p else set acc p q)
+      Map.(if q = 0. then remove acc p else set acc ~key:p ~data:q)
     end in
   b, a
 
@@ -40,7 +40,7 @@ let orderbook symbol init c =
         (* already inited, add event if compliant *)
         let last_update_id =
           Option.value_map prev_d ~default:last_update_id
-            ~f:(fun { final_update_id } -> final_update_id) in
+            ~f:(fun { final_update_id ; _ } -> final_update_id) in
         if d.Depth.first_update_id <> last_update_id + 1 then
           failwith "orderbook: sequence problem, aborting" ;
         let b, a = merge_diffs b a d in
@@ -54,14 +54,16 @@ let orderbook symbol init c =
             (* No previous events received *)
             Condition.broadcast c (None, Some bids, Some asks) ;
             Deferred.return (None, s, bids, asks)
-          | Some { first_update_id; final_update_id } ->
+          | Some { first_update_id ; final_update_id ; _ } ->
             (* Previous events received *)
             if first_update_id > last_update_id + 1 ||
                final_update_id < last_update_id + 1 then
               failwithf "orderbook: inconsistent data received (%d %d %d)"
                 first_update_id final_update_id last_update_id () ;
             let prev_d, bids, asks =
-              Set.fold evts ~init:(None, bids, asks) ~f:begin fun (prev_d, bids, asks) d ->
+              Set.fold evts
+                ~init:(None, bids, asks)
+                ~f:begin fun (_prev_d, bids, asks) d ->
                 let bids, asks = merge_diffs bids asks d in
                 Some d, bids, asks
               end in
@@ -73,11 +75,11 @@ let orderbook symbol init c =
 let load_books b a =
   let b = List.fold_left b
       ~init:(Map.empty (module Float)) ~f:begin fun acc { Level.p ; q } ->
-      Map.set acc p q
+      Map.set acc ~key:p ~data:q
     end in
   let a = List.fold_left a
       ~init:(Map.empty (module Float)) ~f:begin fun acc { Level.p ; q } ->
-      Map.set acc p q
+      Map.set acc ~key:p ~data:q
     end in
   b, a
 
@@ -112,7 +114,7 @@ let main symbol =
       Logs_async.app ~src (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
       Ivar.fill init snapshot ;
       let rec inner () =
-        Condition.wait c >>= fun (d, bids, asks) ->
+        Condition.wait c >>= fun (d, _bids, _asks) ->
         begin if Option.is_none d then
             Logs_async.app ~src (fun m -> m "Order books initialized %s" symbol)
           else

@@ -3,7 +3,7 @@
  (public_name binance_ws)
  (synopsis "Binance Websocket API")
  (modules Ws)
- (libraries bs-devkit logs-async binance fmt yojson websocket-async))
+ (libraries logs-async binance fmt yojson websocket-async))
 
 (executable
  (name        console)

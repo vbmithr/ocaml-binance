@@ -184,7 +184,7 @@ module Trade = struct
       buyer_is_mm : bool ;
     } [@@deriving sexp]
 
-    let compare { trade_ts = a } { trade_ts = b } =
+    let compare { trade_ts = a ; _ } { trade_ts = b ; _ } =
       Ptime.compare a b
   end
   include T
@@ -224,7 +224,7 @@ module Level = struct
       q : float ;
     } [@@deriving sexp]
 
-    let compare { p = a } { p = b } =
+    let compare { p = a ; _ } { p = b ; _ } =
       Float.compare a b
   end
   include T
@@ -249,7 +249,7 @@ module Depth = struct
       asks : Level.t list ;
     } [@@deriving sexp]
 
-    let compare { final_update_id = a } { final_update_id = b } =
+    let compare { final_update_id = a ; _ } { final_update_id = b ; _ } =
       Int.compare a b
   end
   include T
