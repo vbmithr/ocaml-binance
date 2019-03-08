@@ -29,48 +29,48 @@ let orderbook symbol init c_write =
       Map.empty (module Float), (* bids *)
       Map.empty (module Float)) (* asks *)
     ~f:begin fun ((prev_d, s, b, a) as acc) -> function
-    | Trade _ -> Deferred.return acc
-    | Depth d ->
-      match Ivar.peek init with
-      | None ->
-        (* store events *)
-        Pipe.write c_write (Some d, None, None) >>= fun () ->
-        return (Some d, (Set.add s d), b, a)
-      | Some (last_update_id, _, _)
-        when (not (Map.is_empty b) || not (Map.is_empty b)) ->
-        (* already inited, add event if compliant *)
-        let last_update_id =
-          Option.value_map prev_d ~default:last_update_id
-            ~f:(fun { final_update_id ; _ } -> final_update_id) in
-        if d.Depth.first_update_id <> last_update_id + 1 then
-          failwith "orderbook: sequence problem, aborting" ;
-        let b, a = merge_diffs b a d in
-        Pipe.write c_write (Some d, Some b, Some a) >>= fun () ->
-        return (Some d, s, b, a)
-      | Some (last_update_id, bids, asks) -> begin
-          (* initialization phase *)
-          let evts = drop_events_before (Set.add s d) last_update_id in
-          match Set.min_elt evts with
-          | None ->
-            (* No previous events received *)
-            Pipe.write c_write (None, Some bids, Some asks) >>= fun () ->
-            return (None, s, bids, asks)
-          | Some { first_update_id ; final_update_id ; _ } ->
-            (* Previous events received *)
-            if first_update_id > last_update_id + 1 ||
-               final_update_id < last_update_id + 1 then
-              failwithf "orderbook: inconsistent data received (%d %d %d)"
-                first_update_id final_update_id last_update_id () ;
-            let prev_d, bids, asks =
-              Set.fold evts
-                ~init:(None, bids, asks)
-                ~f:begin fun (_prev_d, bids, asks) d ->
-                let bids, asks = merge_diffs bids asks d in
-                Some d, bids, asks
-              end in
-            Pipe.write c_write (None, Some bids, Some asks) >>= fun () ->
-            Deferred.return (prev_d, s, bids, asks)
-        end
+      | Trade _ -> Deferred.return acc
+      | Depth d ->
+        match Ivar.peek init with
+        | None ->
+          (* store events *)
+          Pipe.write c_write (Some d, None, None) >>= fun () ->
+          return (Some d, (Set.add s d), b, a)
+        | Some (last_update_id, (_, _))
+          when (not (Map.is_empty b) || not (Map.is_empty b)) ->
+          (* already inited, add event if compliant *)
+          let last_update_id =
+            Option.value_map prev_d ~default:last_update_id
+              ~f:(fun { final_update_id ; _ } -> final_update_id) in
+          if d.Depth.first_update_id <> last_update_id + 1 then
+            failwith "orderbook: sequence problem, aborting" ;
+          let b, a = merge_diffs b a d in
+          Pipe.write c_write (Some d, Some b, Some a) >>= fun () ->
+          return (Some d, s, b, a)
+        | Some (last_update_id, (bids, asks)) -> begin
+            (* initialization phase *)
+            let evts = drop_events_before (Set.add s d) last_update_id in
+            match Set.min_elt evts with
+            | None ->
+              (* No previous events received *)
+              Pipe.write c_write (None, Some bids, Some asks) >>= fun () ->
+              return (None, s, bids, asks)
+            | Some { first_update_id ; final_update_id ; _ } ->
+              (* Previous events received *)
+              if first_update_id > last_update_id + 1 ||
+                 final_update_id < last_update_id + 1 then
+                failwithf "orderbook: inconsistent data received (%d %d %d)"
+                  first_update_id final_update_id last_update_id () ;
+              let prev_d, bids, asks =
+                Set.fold evts
+                  ~init:(None, bids, asks)
+                  ~f:begin fun (_prev_d, bids, asks) d ->
+                    let bids, asks = merge_diffs bids asks d in
+                    Some d, bids, asks
+                  end in
+              Pipe.write c_write (None, Some bids, Some asks) >>= fun () ->
+              Deferred.return (prev_d, s, bids, asks)
+          end
     end
 
 let load_books b a =
@@ -84,11 +84,10 @@ let load_books b a =
     end in
   b, a
 
-let init_orderbook symbol =
-  Rest.Depth.get ~limit:100 symbol >>|
+let init_orderbook ?limit symbol =
+  Rest.Depth.get ?limit symbol >>|
   Result.map ~f:begin fun { Rest.Depth.last_update_id ; bids ; asks } ->
-    let bids, asks = load_books bids asks in
-    last_update_id, bids, asks
+    last_update_id, load_books bids asks
   end
 
 let wait_n_events c_read n =
@@ -101,37 +100,37 @@ let wait_n_events c_read n =
       Deferred.unit
   in inner n
 
-let main symbol =
+let main symbol limit =
   let init = Ivar.create () in
   let c_read, c_write = Pipe.create () in
   don't_wait_for (Deferred.ignore (orderbook symbol init c_write)) ;
   wait_n_events c_read 10 >>= fun () ->
-  begin
-    init_orderbook symbol >>= function
-    | Error err ->
-      Logs_async.app ~src (fun m -> m "%a" Rest.BinanceError.pp err) >>= fun () ->
-      failwith "Init orderbook failed"
-    | Ok snapshot ->
-      Logs_async.app ~src (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
-      Ivar.fill init snapshot ;
-      Pipe.iter c_read ~f:begin fun (d, _bids, _asks) ->
-        match d with
-        | None ->
-          Logs_async.app ~src (fun m -> m "Order books initialized %s" symbol)
-        | Some _ ->
-          Logs_async.app ~src (fun m -> m "Order books updated")
-      end
-  end
+  init_orderbook ~limit symbol >>= function
+  | Error err ->
+    Logs_async.app ~src (fun m -> m "%a" Rest.BinanceError.pp err) >>= fun () ->
+    failwith "Init orderbook failed"
+  | Ok snapshot ->
+    Logs_async.app ~src (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
+    Ivar.fill init snapshot ;
+    Pipe.iter c_read ~f:begin function
+      | (None, _bids, _asks) ->
+        Logs_async.app ~src (fun m -> m "Order books initialized %s" symbol)
+      | (Some _, _, _) ->
+        Logs_async.app ~src (fun m -> m "Order books updated")
+    end
 
 let command =
   Command.async ~summary:"Binance depth" begin
     let open Command.Let_syntax in
     [%map_open
       let symbol = anon ("symbol" %: string)
+      and limit = flag_optional_with_default_doc
+          "limit" int sexp_of_int ~default:100
+          ~doc:"N number of book entries"
       and () = Logs_async_reporter.set_level_via_param None in
       fun () ->
         Logs.set_reporter (Logs_async_reporter.reporter ()) ;
-        main symbol
+        main symbol limit
     ] end
 
 let () = Command.run command
