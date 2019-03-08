@@ -19,7 +19,7 @@ let merge_diffs b a { Depth.bids ; Depth.asks ; _ } =
     end in
   b, a
 
-let orderbook symbol init c =
+let orderbook symbol init c_write =
   let evts = Ws.connect
       Ws.[create_stream ~topic:Depth ~symbol] in
   Pipe.fold evts
@@ -34,9 +34,10 @@ let orderbook symbol init c =
       match Ivar.peek init with
       | None ->
         (* store events *)
-        Condition.broadcast c (Some d, None, None) ;
-        Deferred.return (Some d, (Set.add s d), b, a)
-      | Some (last_update_id, _, _) when (not (Map.is_empty b) || not (Map.is_empty b)) ->
+        Pipe.write c_write (Some d, None, None) >>= fun () ->
+        return (Some d, (Set.add s d), b, a)
+      | Some (last_update_id, _, _)
+        when (not (Map.is_empty b) || not (Map.is_empty b)) ->
         (* already inited, add event if compliant *)
         let last_update_id =
           Option.value_map prev_d ~default:last_update_id
@@ -44,16 +45,16 @@ let orderbook symbol init c =
         if d.Depth.first_update_id <> last_update_id + 1 then
           failwith "orderbook: sequence problem, aborting" ;
         let b, a = merge_diffs b a d in
-        Condition.broadcast c (Some d, Some b, Some a) ;
-        Deferred.return (Some d, s, b, a)
+        Pipe.write c_write (Some d, Some b, Some a) >>= fun () ->
+        return (Some d, s, b, a)
       | Some (last_update_id, bids, asks) -> begin
           (* initialization phase *)
           let evts = drop_events_before (Set.add s d) last_update_id in
           match Set.min_elt evts with
           | None ->
             (* No previous events received *)
-            Condition.broadcast c (None, Some bids, Some asks) ;
-            Deferred.return (None, s, bids, asks)
+            Pipe.write c_write (None, Some bids, Some asks) >>= fun () ->
+            return (None, s, bids, asks)
           | Some { first_update_id ; final_update_id ; _ } ->
             (* Previous events received *)
             if first_update_id > last_update_id + 1 ||
@@ -67,7 +68,7 @@ let orderbook symbol init c =
                 let bids, asks = merge_diffs bids asks d in
                 Some d, bids, asks
               end in
-            Condition.broadcast c (None, Some bids, Some asks) ;
+            Pipe.write c_write (None, Some bids, Some asks) >>= fun () ->
             Deferred.return (prev_d, s, bids, asks)
         end
     end
@@ -90,11 +91,11 @@ let init_orderbook symbol =
     last_update_id, bids, asks
   end
 
-let wait_n_events c n =
+let wait_n_events c_read n =
   let rec inner n =
     Logs_async.app ~src (fun m -> m "wait for %d events" n) >>= fun () ->
     if n > 0 then
-      Condition.wait c >>= fun _ ->
+      Pipe.read c_read >>= fun _ ->
       inner (pred n)
     else
       Deferred.unit
@@ -102,9 +103,9 @@ let wait_n_events c n =
 
 let main symbol =
   let init = Ivar.create () in
-  let c = Condition.create () in
-  don't_wait_for (Deferred.ignore (orderbook symbol init c)) ;
-  wait_n_events c 10 >>= fun () ->
+  let c_read, c_write = Pipe.create () in
+  don't_wait_for (Deferred.ignore (orderbook symbol init c_write)) ;
+  wait_n_events c_read 10 >>= fun () ->
   begin
     init_orderbook symbol >>= function
     | Error err ->
@@ -113,15 +114,13 @@ let main symbol =
     | Ok snapshot ->
       Logs_async.app ~src (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
       Ivar.fill init snapshot ;
-      let rec inner () =
-        Condition.wait c >>= fun (d, _bids, _asks) ->
-        begin if Option.is_none d then
-            Logs_async.app ~src (fun m -> m "Order books initialized %s" symbol)
-          else
-            Logs_async.app ~src (fun m -> m "Order books updated")
-        end >>= fun () ->
-        inner ()
-      in inner ()
+      Pipe.iter c_read ~f:begin fun (d, _bids, _asks) ->
+        match d with
+        | None ->
+          Logs_async.app ~src (fun m -> m "Order books initialized %s" symbol)
+        | Some _ ->
+          Logs_async.app ~src (fun m -> m "Order books updated")
+      end
   end
 
 let command =
