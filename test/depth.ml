@@ -88,7 +88,7 @@ let load_books b a =
 
 let init_orderbook ?limit symbol =
   let open Binance_rest in
-  Depth.get ?limit symbol >>|
+  Fastrest.request (Depth.get ?limit symbol) >>|
   Result.map ~f:begin fun { Depth.last_update_id ; bids ; asks } ->
     last_update_id, load_books bids asks
   end
@@ -110,7 +110,9 @@ let main symbol limit =
   wait_n_events c_read 10 >>= fun () ->
   init_orderbook ~limit symbol >>= function
   | Error err ->
-    Logs_async.app ~src (fun m -> m "%a" Binance_rest.BinanceError.pp err) >>= fun () ->
+    Logs_async.app ~src begin fun m ->
+      m "%a" (Fastrest.pp_print_error Binance_rest.BinanceError.pp) err
+    end >>= fun () ->
     failwith "Init orderbook failed"
   | Ok snapshot ->
     Logs_async.app ~src (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
