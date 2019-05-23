@@ -24,29 +24,31 @@ let wrap ?(speed=`Quick) n f =
     f () >>= function
     | Ok _ -> Deferred.unit
     | Error err ->
-      let msg = (Rest.BinanceError.to_string err) in
+      let msg = (Binance_rest.BinanceError.to_string err) in
       printf "%s" msg ;
       failwith msg
   end
 
+open Binance_rest
+
 let rest = [
-  wrap "get" (fun () -> Rest.Depth.get ~limit:5 "BNBBTC") ;
+  wrap "get" (fun () -> Depth.get ~limit:5 "BNBBTC") ;
   wrap "user" begin fun () ->
     let open Deferred.Result.Monad_infix in
-    Rest.User.Stream.start ~key:cfg.key () >>=
-    Rest.User.Stream.close ~key:cfg.key
+    User.Stream.start ~key:cfg.key () >>=
+    User.Stream.close ~key:cfg.key
   end ;
   wrap "open_orders" begin fun () ->
-    Rest.User.open_orders ~key:cfg.key ~secret:cfg.secret "BNBBTC"
+    User.open_orders ~key:cfg.key ~secret:cfg.secret "BNBBTC"
   end ;
   wrap "account_info" begin fun () ->
     let open Deferred.Result.Monad_infix in
-    Rest.User.account_info ~key:cfg.key ~secret:cfg.secret () >>| fun ai ->
-    printf "%s" (Rest.User.AccountInfo.to_string ai)
+    User.account_info ~key:cfg.key ~secret:cfg.secret () >>| fun ai ->
+    printf "%s" (User.AccountInfo.to_string ai)
   end ;
   wrap "fake_trade" begin fun () ->
     let open Deferred.Result.Monad_infix in
-    Rest.User.order
+    User.order
       ~dry_run:true
       ~key:cfg.key ~secret:cfg.secret
       ~symbol:"BNBBTC"
@@ -54,7 +56,7 @@ let rest = [
       ~kind:OrderType.Market
       ~qty:2. () >>|
     Option.iter ~f:(fun ordStatus ->
-        printf "%s" (Rest.User.OrderStatus.to_string ordStatus))
+        printf "%s" (User.OrderStatus.to_string ordStatus))
   end
 
 ]

@@ -233,9 +233,9 @@ module Level = struct
   let encoding =
     let open Json_encoding in
     conv
-      (fun { p ; q } -> (Float.to_string p, Float.to_string q, ()))
-      (fun (p, q, ()) -> { p = Float.of_string p ; q = Float.of_string q })
-      (tup3 string string unit)
+      (fun { p ; q } -> (Float.to_string p, Float.to_string q))
+      (fun (p, q) -> { p = Float.of_string p ; q = Float.of_string q })
+      (tup2 string string)
 end
 
 module Depth = struct

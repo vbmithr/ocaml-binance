@@ -167,6 +167,7 @@ module User = struct
       deposit : bool ;
       timestamp : Ptime.t ;
       balances : Balance.t list ;
+      accountType : string ;
     }
 
     let encoding =
@@ -174,15 +175,15 @@ module User = struct
       conv
         (fun { makerC ; takerC ; buyerC ; sellerC ;
                trade ; withdraw ; deposit ; timestamp ;
-               balances } ->
+               balances ; accountType } ->
           (makerC, takerC, buyerC, sellerC, trade,
-           withdraw, deposit, timestamp, balances))
+           withdraw, deposit, timestamp, balances, accountType))
         (fun (makerC, takerC, buyerC, sellerC, trade,
-              withdraw, deposit, timestamp, balances) ->
+              withdraw, deposit, timestamp, balances, accountType) ->
           { makerC ; takerC ; buyerC ; sellerC ;
             trade ; withdraw ; deposit ; timestamp ;
-            balances })
-        (obj9
+            balances ; accountType })
+        (obj10
            (req "makerCommission" int)
            (req "takerCommission" int)
            (req "buyerCommission" int)
@@ -191,7 +192,8 @@ module User = struct
            (req "canWithdraw" bool)
            (req "canDeposit" bool)
            (req "updateTime" Ptime.float_encoding)
-           (req "balances" (list Balance.encoding)))
+           (req "balances" (list Balance.encoding))
+           (req "accountType" string))
 
     let pp ppf t =
       Json_repr.(pp (module Yojson) ppf (Yojson_repr.construct encoding t))

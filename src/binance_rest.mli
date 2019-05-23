@@ -49,6 +49,7 @@ module User : sig
       deposit : bool ;
       timestamp : Ptime.t ;
       balances : Balance.t list ;
+      accountType : string ;
     }
 
     val encoding : t Json_encoding.encoding
