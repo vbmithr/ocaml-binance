@@ -1,5 +1,6 @@
 open Core
-open Async
+
+open Fastrest
 open Binance
 
 module BinanceError : sig
@@ -22,9 +23,7 @@ module Depth : sig
     asks : Level.t list ;
   }
 
-  val get :
-    ?buf:Bi_outbuf.t -> ?limit:int ->
-    string -> (t, BinanceError.t) Result.t Deferred.t
+  val get : ?limit:int -> string -> (get, t, BinanceError.t) service
 end
 
 module User : sig
@@ -81,21 +80,14 @@ module User : sig
     val to_string : t -> string
   end
 
-  val open_orders :
-    ?buf:Bi_outbuf.t ->
-    key:string -> secret:string -> string ->
-    (OrderStatus.t list, BinanceError.t) Result.t Deferred.t
+  val open_orders : string ->
+    (get, OrderStatus.t list, BinanceError.t) service
 
-  val account_info :
-    ?buf:Bi_outbuf.t ->
-    key:string -> secret:string -> unit ->
-    (AccountInfo.t, BinanceError.t) Result.t Deferred.t
+  val account_info : unit ->
+    (get, AccountInfo.t, BinanceError.t) service
 
   val order :
-    ?buf:Bi_outbuf.t ->
     ?dry_run:bool ->
-    key:string ->
-    secret:string ->
     symbol:string ->
     side:Side.t ->
     kind:OrderType.t ->
@@ -105,17 +97,11 @@ module User : sig
     ?clientOrdID:string ->
     ?stopPx:float ->
     ?icebergQty:float -> unit ->
-    (OrderStatus.t option, BinanceError.t) Result.t Deferred.t
+    (post_form, OrderStatus.t option, BinanceError.t) service
 
   module Stream : sig
-    val start :
-      ?buf:Bi_outbuf.t -> key:string -> unit ->
-      (string, BinanceError.t) Result.t Deferred.t
-    val renew :
-      ?buf:Bi_outbuf.t -> key:string -> string ->
-      (unit, BinanceError.t) Result.t Deferred.t
-    val close :
-      ?buf:Bi_outbuf.t -> key:string -> string ->
-      (unit, BinanceError.t) Result.t Deferred.t
+    val start : unit -> (post_form, string, BinanceError.t) service
+    val renew : listenKey:string -> (put_form, unit, BinanceError.t) service
+    val close : listenKey:string -> (delete, unit, BinanceError.t) service
   end
 end

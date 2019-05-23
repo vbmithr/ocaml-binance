@@ -11,7 +11,7 @@
  (public_name binance-rest)
  (modules Binance_rest)
  (synopsis "REST API for Binance")
- (libraries logs-async binance core async conduit-async cohttp-async yojson digestif.c hex))
+ (libraries logs-async binance core async fastrest yojson digestif.c hex))
 
 (library
  (name        binance_ws)
