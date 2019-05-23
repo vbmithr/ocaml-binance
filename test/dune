@@ -4,7 +4,7 @@
  (package     binance-ws)
  (modules     Depth)
  (preprocess (pps ppx_jane ppx_sexp_conv))
- (libraries logs-async-reporter binance-ws binance-rest alcotest-async))
+ (libraries logs-async-reporter binance-ws-async binance-rest alcotest-async))
 
 (test
  (name       test)

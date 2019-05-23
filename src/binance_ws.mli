@@ -1,29 +1,22 @@
-open Async
 open Binance
 
 type topic =
   | Trade
   | Depth
 
-type stream = private {
-  topic : topic ;
-  symbol : string ;
-}
-val create_stream : topic:topic -> symbol:string -> stream
-val stream_of_string : string -> stream
+module Stream : sig
+  type t = private {
+    topic : topic ;
+    symbol : string ;
+  }
+  val create : topic:topic -> symbol:string -> t
+  val of_string : string -> t
+
+  val to_path : t list -> string
+end
 
 type event =
   | Trade of Trade.t
   | Depth of Depth.t
 
-val connect :
-  ?buf:Bi_outbuf.t ->
-  ?connected:unit Condition.t ->
-  stream list ->
-  event Pipe.Reader.t
-
-val with_connection :
-  ?buf:Bi_outbuf.t ->
-  ?connected:unit Condition.t ->
-  stream list ->
-  f:(event Pipe.Reader.t -> 'a Deferred.t) -> 'a Deferred.t
+val event_encoding : event Json_encoding.encoding

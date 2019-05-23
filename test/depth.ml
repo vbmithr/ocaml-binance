@@ -22,7 +22,8 @@ let merge_diffs b a { Depth.bids ; Depth.asks ; _ } =
   b, a
 
 let orderbook symbol init c_write =
-  let evts = connect [create_stream ~topic:Depth ~symbol] in
+  let evts =
+    Binance_ws_async.connect [Stream.create ~topic:Depth ~symbol] in
   Pipe.fold evts
     ~init:(
       None, (* previous event *)
