@@ -11,7 +11,9 @@ let port = 9443
  * let host = "127.0.0.1"
  * let port = 9444 *)
 let uri = Uri.make ~scheme ~host ~port ()
-let src = Logs.Src.create "binance.ws"
+let src = Logs.Src.create "binance.ws.async"
+
+module Log_async = (val Logs_async.src_log src : Logs_async.LOG)
 
 let connect ?(buf=Bi_outbuf.create 4096) ?connected streams =
   let uri = Uri.with_path uri "stream" in
@@ -20,7 +22,7 @@ let connect ?(buf=Bi_outbuf.create 4096) ?connected streams =
   let inner r w =
     let cleanup r w =
       Pipe.closed client_r >>= fun () ->
-      Logs_async.debug ~src begin fun m ->
+      Log_async.debug begin fun m ->
         m "post-disconnection cleanup"
       end >>| fun () ->
       Pipe.close w ;
@@ -35,17 +37,17 @@ let connect ?(buf=Bi_outbuf.create 4096) ?connected streams =
   let rec loop () = begin
     Monitor.try_with_or_error ~extract_exn:false
       begin fun () ->
-        Logs_async.info ~src begin fun m ->
+        Log_async.info begin fun m ->
           m "connecting to %a" Uri.pp_hum uri
         end >>= fun () ->
         Fastws_async.with_connection_ez uri ~f:inner
       end >>= function
     | Ok () ->
-      Logs_async.err ~src begin fun m ->
+      Log_async.err begin fun m ->
         m "connection to %a terminated" Uri.pp_hum uri
       end
     | Error err ->
-      Logs_async.err ~src begin fun m ->
+      Log_async.err begin fun m ->
         m "connection to %a raised %a" Uri.pp_hum uri Error.pp err
       end
   end >>= fun () ->
