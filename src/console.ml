@@ -2,6 +2,8 @@ open Core
 open Async
 open Binance
 
+open Binance_ws
+
 let src = Logs.Src.create "binance.ws.console"
 
 let command =
@@ -12,8 +14,8 @@ let command =
       and () = Logs_async_reporter.set_level_via_param None in
       fun () ->
         Logs.set_reporter (Logs_async_reporter.reporter ()) ;
-        let evts = Ws.connect
-            (List.map ~f:Ws.stream_of_string streams) in
+        let evts = connect
+            (List.map ~f:stream_of_string streams) in
         Pipe.iter evts ~f:begin function
           | Trade t ->
             Logs_async.app ~src (fun m -> m "T %a" Trade.pp t)

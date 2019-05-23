@@ -1,6 +1,29 @@
 (library
  (name        binance)
  (public_name binance)
+ (modules Binance)
  (synopsis "Binance API types")
- (preprocess (pps ppx_sexp_conv))
+ (preprocess (pps ppx_sexp_conv ppx_let))
  (libraries sexplib base fmt ocplib-json-typed ptime yojson))
+
+(library
+ (name        binance_rest)
+ (public_name binance-rest)
+ (modules Binance_rest)
+ (synopsis "REST API for Binance")
+ (libraries logs-async binance core async conduit-async cohttp-async yojson digestif.c hex))
+
+(library
+ (name        binance_ws)
+ (public_name binance-ws)
+ (synopsis "Binance Websocket API")
+ (modules Binance_ws)
+ (libraries logs-async binance fmt yojson fastws-async))
+
+(executable
+ (name        console)
+ (public_name binance-console)
+ (preprocess (pps ppx_sexp_conv ppx_let))
+ (package      binance-ws)
+ (modules Console)
+ (libraries logs-async-reporter binance-ws))

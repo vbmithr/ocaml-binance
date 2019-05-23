@@ -2,6 +2,8 @@ open Core
 open Async
 open Binance
 
+open Binance_ws
+
 let src = Logs.Src.create "binance.test.depth"
 
 let drop_events_before depth last_update_id =
@@ -20,8 +22,7 @@ let merge_diffs b a { Depth.bids ; Depth.asks ; _ } =
   b, a
 
 let orderbook symbol init c_write =
-  let evts = Ws.connect
-      Ws.[create_stream ~topic:Depth ~symbol] in
+  let evts = connect [create_stream ~topic:Depth ~symbol] in
   Pipe.fold evts
     ~init:(
       None, (* previous event *)
@@ -85,8 +86,9 @@ let load_books b a =
   b, a
 
 let init_orderbook ?limit symbol =
-  Rest.Depth.get ?limit symbol >>|
-  Result.map ~f:begin fun { Rest.Depth.last_update_id ; bids ; asks } ->
+  let open Binance_rest in
+  Depth.get ?limit symbol >>|
+  Result.map ~f:begin fun { Depth.last_update_id ; bids ; asks } ->
     last_update_id, load_books bids asks
   end
 
@@ -107,7 +109,7 @@ let main symbol limit =
   wait_n_events c_read 10 >>= fun () ->
   init_orderbook ~limit symbol >>= function
   | Error err ->
-    Logs_async.app ~src (fun m -> m "%a" Rest.BinanceError.pp err) >>= fun () ->
+    Logs_async.app ~src (fun m -> m "%a" Binance_rest.BinanceError.pp err) >>= fun () ->
     failwith "Init orderbook failed"
   | Ok snapshot ->
     Logs_async.app ~src (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
