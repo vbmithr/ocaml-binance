@@ -17,12 +17,12 @@ let cfg =
   List.Assoc.find_exn ~equal:String.equal
     (Sexplib.Sexp.load_sexp_conv_exn default_cfg Cfg.t_of_sexp) "BINANCE"
 
-let wrap ?(speed=`Quick) n f =
-  Alcotest_async.test_case n speed begin fun () ->
+let wrap ?timeout ?(speed=`Quick) n f =
+  Alcotest_async.test_case ?timeout n speed begin fun () ->
     f () >>= function
     | Ok _ -> Deferred.unit
     | Error (Fastrest.Http _e) ->
-      assert false
+      Alcotest.fail "Client connection error"
     | Error (App err) ->
       let msg = (Binance_rest.BinanceError.to_string err) in
       Alcotest.fail msg
@@ -34,7 +34,9 @@ open Binance_rest
 let auth = Fastrest.auth ~key:cfg.key ~secret:cfg.secret ()
 
 let rest = [
-  wrap "get" (fun () -> Fastrest.request (Depth.get ~limit:5 "BNBBTC")) ;
+  wrap "exchangeInfo"
+    ~timeout:(Time.Span.of_int_sec 10) (fun () -> Fastrest.request (ExchangeInfo.get ())) ;
+  wrap "depth" (fun () -> Fastrest.request (Depth.get ~limit:5 "BNBBTC")) ;
   wrap "stream" begin fun () ->
     Fastrest.request ~auth (User.Stream.start ()) >>= function
     | Error msg -> return (Error msg)

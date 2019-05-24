@@ -16,6 +16,27 @@ module BinanceError : sig
   val to_string : t -> string
 end
 
+module ExchangeInfo : sig
+  module Sym : sig
+    type t = {
+      symbol: string ;
+      base: string ;
+      base_decimals: int ;
+      quote: string ;
+      quote_decimals: int ;
+    } [@@deriving sexp]
+
+    val compare : t -> t -> int
+  end
+
+  type t = {
+    syms: Sym.t list ;
+  }
+
+  val encoding : t Json_encoding.encoding
+  val get : unit -> (get, t, BinanceError.t) service
+end
+
 module Depth : sig
   type t = {
     last_update_id : int ;

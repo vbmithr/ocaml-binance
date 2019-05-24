@@ -56,6 +56,52 @@ let authf_keyonly { Fastrest.params ; _ } { Fastrest.key ; _ } =
 let with_path_and_query ~path ~query uri =
   Uri.with_query (Uri.with_path uri path) query
 
+module ExchangeInfo = struct
+  module Sym = struct
+    type t = {
+      symbol: string ;
+      base: string ;
+      base_decimals: int ;
+      quote: string ;
+      quote_decimals: int ;
+    } [@@deriving sexp]
+
+    let compare a b = String.compare a.symbol b.symbol
+  end
+
+  let sym_encoding =
+    let open Json_encoding in
+    conv
+      (fun { Sym.symbol ; base ; base_decimals ; quote ; quote_decimals } ->
+         (), (symbol, base, base_decimals, quote, quote_decimals))
+      (fun ((), (symbol, base, base_decimals, quote, quote_decimals)) ->
+         { symbol ; base ; base_decimals ; quote ; quote_decimals })
+      (merge_objs unit
+         (obj5
+            (req "symbol" string)
+            (req "baseAsset" string)
+            (req "baseAssetPrecision" int)
+            (req "quoteAsset" string)
+            (req "quotePrecision" int)))
+
+  type t = {
+    syms: Sym.t list ;
+  }
+
+  let encoding =
+    let open Json_encoding in
+    conv
+      (fun { syms } -> (), syms)
+      (fun ((), syms) -> { syms })
+      (merge_objs unit
+         (obj1
+            (req "symbols" (list sym_encoding))))
+
+  let get () =
+    Fastrest.get (BinanceError.or_error encoding)
+      (Uri.with_path url "api/v1/exchangeInfo")
+end
+
 module Depth = struct
   type t = {
     last_update_id : int ;
