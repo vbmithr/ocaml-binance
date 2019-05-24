@@ -36,7 +36,7 @@ module BinanceError = struct
   let to_string = Fmt.to_to_string pp
 end
 
-let _authf { Fastrest.params ; _ } { Fastrest.key ; secret ; meta = _ } =
+let authf { Fastrest.params ; _ } { Fastrest.key ; secret ; meta = _ } =
   let params =
     ("timestamp", [Int.to_string (Time_ns.(to_int_ns_since_epoch (now ()) / 1_000_000))]) ::
     ("recvWindow", [Int.to_string 1_000]) ::
@@ -48,6 +48,10 @@ let _authf { Fastrest.params ; _ } { Fastrest.key ; secret ; meta = _ } =
   let signature =
     Digestif.SHA256.(hmac_string ~key:secret ps_encoded |> to_hex) in
   let params = List.rev (("signature", [signature]) :: List.rev params) in
+  { Fastrest.params ; headers }
+
+let authf_keyonly { Fastrest.params ; _ } { Fastrest.key ; _ } =
+  let headers = Httpaf.Headers.of_list ["X-MBX-APIKEY", key] in
   { Fastrest.params ; headers }
 
 (* let call
@@ -295,62 +299,63 @@ module User = struct
     let to_string = Fmt.to_to_string pp
   end
 
-  (* let order
-   *     ?buf
-   *     ?(dry_run=false)
-   *     ~key ~secret ~symbol
-   *     ~side ~kind ?timeInForce
-   *     ~qty ?price ?clientOrdID
-   *     ?stopPx ?icebergQty () =
-   *   let params = List.filter_opt [
-   *       Some ("symbol", [symbol]) ;
-   *       Some ("side", [Side.to_string side]) ;
-   *       Some ("type", [OrderType.to_string kind]) ;
-   *       Option.map timeInForce ~f:(fun tif -> "timeInForce", [TimeInForce.to_string tif]) ;
-   *       Some ("quantity", [Printf.sprintf "%.6f" qty]) ;
-   *       Option.map price ~f:(fun p -> "price", [Printf.sprintf "%.6f" p]) ;
-   *       Option.map clientOrdID ~f:(fun id -> "newClientOrderId", [id]) ;
-   *       Option.map stopPx ~f:(fun p -> "stopPrice", [Printf.sprintf "%.6f" p]) ;
-   *       Option.map icebergQty ~f:(fun q -> "icebergQty", [Printf.sprintf "%.6f" q]) ;
-   *     ] in
-   *   let enc =
-   *     let open Json_encoding in
-   *     union [
-   *       case empty (function _ -> None) (function () -> None) ;
-   *       case OrderStatus.order_response_encoding
-   *         Fn.id (fun orderStatus -> Some orderStatus) ;
-   *     ] in
-   *   call ?buf ~meth:`POST ~key ~secret ~params
-   *     ("api/v3/order" ^ if dry_run then "/test" else "") >>|
-   *     destruct_resp enc
-   * 
-   * let open_orders ?buf ~key ~secret symbol =
-   *   call ?buf ~meth:`GET ~key ~secret ~params:[
-   *     "symbol", [symbol] ;
-   *   ] "api/v3/openOrders" >>|
-   *   destruct_resp (Json_encoding.list OrderStatus.encoding)
-   * 
-   * let account_info ?buf ~key ~secret () =
-   *   call ?buf ~meth:`GET ~key ~secret "api/v3/account" >>|
-   *   destruct_resp AccountInfo.encoding
-   * 
-   * module Stream = struct
-   *   let encoding =
-   *     let open Json_encoding in
-   *     conv Fn.id Fn.id (obj1 (req "listenKey" string))
-   * 
-   *   let start ?buf ~key () =
-   *     call ?buf ~meth:`POST ~key "api/v1/userDataStream" >>|
-   *     destruct_resp encoding
-   * 
-   *   let renew ?buf ~key listenKey =
-   *     call ?buf ~meth:`PUT ~key
-   *       ~params:["listenKey", [listenKey]] "api/v1/userDataStream" >>|
-   *     destruct_resp Json_encoding.empty
-   * 
-   *   let close ?buf ~key listenKey =
-   *     call ?buf ~meth:`DELETE ~key
-   *       ~params:["listenKey", [listenKey]] "api/v1/userDataStream" >>|
-   *     destruct_resp Json_encoding.empty *)
-  (* end *)
+  let order
+      ?(dry_run=false) ~symbol
+      ~side ~kind ?timeInForce
+      ~qty ?price ?clientOrdID
+      ?stopPx ?icebergQty () =
+    let params = List.filter_opt [
+        Some ("symbol", [symbol]) ;
+        Some ("side", [Side.to_string side]) ;
+        Some ("type", [OrderType.to_string kind]) ;
+        Option.map timeInForce ~f:(fun tif -> "timeInForce", [TimeInForce.to_string tif]) ;
+        Some ("quantity", [Printf.sprintf "%.6f" qty]) ;
+        Option.map price ~f:(fun p -> "price", [Printf.sprintf "%.6f" p]) ;
+        Option.map clientOrdID ~f:(fun id -> "newClientOrderId", [id]) ;
+        Option.map stopPx ~f:(fun p -> "stopPrice", [Printf.sprintf "%.6f" p]) ;
+        Option.map icebergQty ~f:(fun q -> "icebergQty", [Printf.sprintf "%.6f" q]) ;
+      ] in
+    let enc =
+      let open Json_encoding in
+      union [
+        case empty (function _ -> None) (function () -> None) ;
+        case OrderStatus.order_response_encoding
+          Fn.id (fun orderStatus -> Some orderStatus) ;
+      ] in
+    Fastrest.post_form ~params ~auth:authf (BinanceError.or_error enc)
+      (Uri.with_path url ("api/v3/order" ^ if dry_run then "/test" else ""))
+
+  let open_orders symbol =
+    Fastrest.get ~auth:authf
+      (BinanceError.or_error (Json_encoding.list OrderStatus.encoding))
+      Uri.(with_query (with_path url "api/v3/openOrders") ["symbol", [symbol]])
+
+  let account_info () =
+    Fastrest.get ~auth:authf
+      (BinanceError.or_error AccountInfo.encoding)
+      (Uri.with_path url "api/v3/account")
+
+  module Stream = struct
+    let encoding =
+      let open Json_encoding in
+      conv Fn.id Fn.id (obj1 (req "listenKey" string))
+
+    let start () =
+      Fastrest.post_form ~auth:authf_keyonly
+        (BinanceError.or_error encoding)
+        (Uri.with_path url "api/v1/userDataStream")
+
+    let renew ~listenKey =
+      Fastrest.put_form
+        ~auth:authf_keyonly
+        ~params:["listenKey", [listenKey]]
+        (BinanceError.or_error Json_encoding.empty)
+        (Uri.with_path url "api/v1/userDataStream")
+
+    let close ~listenKey =
+      Fastrest.delete ~auth:authf_keyonly
+      (BinanceError.or_error Json_encoding.empty)
+      Uri.(with_query (with_path url "api/v1/userDataStream")
+             ["listenKey", [listenKey]])
+  end
 end

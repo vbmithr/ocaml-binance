@@ -25,45 +25,37 @@ let wrap ?(speed=`Quick) n f =
       assert false
     | Error (App err) ->
       let msg = (Binance_rest.BinanceError.to_string err) in
-      printf "%s" msg ;
-      failwith msg
+      Alcotest.fail msg
   end
 
+open Binance
 open Binance_rest
 
-let rest = [
-  wrap "get" (fun () ->
-      Fastrest.request (Depth.get ~limit:5 "BNBBTC")) ;
-  (* wrap "user" begin fun () ->
-   *   let open Deferred.Result.Monad_infix in
-   *   User.Stream.start ~key:cfg.key () >>=
-   *   User.Stream.close ~key:cfg.key
-   * end ;
-   * wrap "open_orders" begin fun () ->
-   *   User.open_orders ~key:cfg.key ~secret:cfg.secret "BNBBTC"
-   * end ;
-   * wrap "account_info" begin fun () ->
-   *   let open Deferred.Result.Monad_infix in
-   *   User.account_info ~key:cfg.key ~secret:cfg.secret () >>| fun ai ->
-   *   printf "%s" (User.AccountInfo.to_string ai)
-   * end ;
-   * wrap "fake_trade" begin fun () ->
-   *   let open Deferred.Result.Monad_infix in
-   *   User.order
-   *     ~dry_run:true
-   *     ~key:cfg.key ~secret:cfg.secret
-   *     ~symbol:"BNBBTC"
-   *     ~side:`Buy
-   *     ~kind:OrderType.Market
-   *     ~qty:2. () >>|
-   *   Option.iter ~f:(fun ordStatus ->
-   *       printf "%s" (User.OrderStatus.to_string ordStatus))
-   * end *)
+let auth = Fastrest.auth ~key:cfg.key ~secret:cfg.secret ()
 
+let rest = [
+  wrap "get" (fun () -> Fastrest.request (Depth.get ~limit:5 "BNBBTC")) ;
+  wrap "stream" begin fun () ->
+    Fastrest.request ~auth (User.Stream.start ()) >>= function
+    | Error msg -> return (Error msg)
+    | Ok listenKey ->
+      Fastrest.request ~auth (User.Stream.close ~listenKey)
+  end ;
+  wrap "open_orders" (fun () -> Fastrest.request ~auth (User.open_orders "BNBBTC")) ;
+  wrap "account_info" (fun () -> Fastrest.request ~auth (User.account_info ())) ;
+  wrap "fake_trade" begin fun () ->
+    Fastrest.request ~auth
+      (User.order
+         ~dry_run:true
+         ~symbol:"BNBBTC"
+         ~side:`Buy
+         ~kind:OrderType.Market
+         ~qty:2. ())
+  end
 ]
 
 let () =
-  Logs.set_level (Some Debug) ;
+  Logs.set_level ~all:true (Some Debug) ;
   Alcotest.run "binance" [
     "rest", rest ;
   ]
