@@ -29,12 +29,8 @@ module ExchangeInfo : sig
     val compare : t -> t -> int
   end
 
-  type t = {
-    syms: Sym.t list ;
-  }
-
-  val encoding : t Json_encoding.encoding
-  val get : unit -> (get, t, BinanceError.t) service
+  val encoding : Sym.t list Json_encoding.encoding
+  val get : (get, Sym.t list, BinanceError.t) service
 end
 
 module Depth : sig

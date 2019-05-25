@@ -84,20 +84,16 @@ module ExchangeInfo = struct
             (req "quoteAsset" string)
             (req "quotePrecision" int)))
 
-  type t = {
-    syms: Sym.t list ;
-  }
-
   let encoding =
     let open Json_encoding in
     conv
-      (fun { syms } -> (), syms)
-      (fun ((), syms) -> { syms })
+      (fun syms -> (), syms)
+      (fun ((), syms) -> syms)
       (merge_objs unit
          (obj1
             (req "symbols" (list sym_encoding))))
 
-  let get () =
+  let get =
     Fastrest.get (BinanceError.or_error encoding)
       (Uri.with_path url "api/v1/exchangeInfo")
 end

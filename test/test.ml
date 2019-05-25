@@ -35,7 +35,7 @@ let auth = Fastrest.auth ~key:cfg.key ~secret:cfg.secret ()
 
 let rest = [
   wrap "exchangeInfo"
-    ~timeout:(Time.Span.of_int_sec 10) (fun () -> Fastrest.request (ExchangeInfo.get ())) ;
+    ~timeout:(Time.Span.of_int_sec 10) (fun () -> Fastrest.request (ExchangeInfo.get)) ;
   wrap "depth" (fun () -> Fastrest.request (Depth.get ~limit:5 "BNBBTC")) ;
   wrap "stream" begin fun () ->
     Fastrest.request ~auth (User.Stream.start ()) >>= function
