@@ -21,42 +21,62 @@ let merge_diffs b a { Depth.bids ; Depth.asks ; _ } =
     end in
   b, a
 
-let orderbook symbol init c_write =
-  Binance_ws_async.connect
-    [Stream.create ~topic:Depth ~symbol] >>= fun (evts, _cleaned_up) ->
-  Pipe.fold evts
-    ~init:(
-      None, (* previous event *)
-      Set.empty (module Depth), (* events unprocessed *)
-      Map.empty (module Float), (* bids *)
-      Map.empty (module Float)) (* asks *)
-    ~f:begin fun ((prev_d, s, b, a) as acc) -> function
+type acc = {
+  prev: (string, Depth.t, Base.String.comparator_witness) Map.t ;
+  unprocessed: (Depth.t, Depth.comparator_witness) Set.t ;
+  bids: (float, float, Base.Float.comparator_witness) Map.t ;
+  asks: (float, float, Base.Float.comparator_witness) Map.t ;
+}
+
+let create_acc ?(prev=String.Map.empty) unprocessed bids asks =
+  { prev ; unprocessed ; bids ; asks }
+
+let init_acc = {
+  prev = String.Map.empty ;
+  unprocessed = Set.empty (module Depth) ;
+  bids = Map.empty (module Float) ;
+  asks = Map.empty (module Float) ;
+}
+
+let orderbook symbols init c =
+  let streams = List.map symbols ~f:begin fun symbol ->
+      Stream.create ~topic:Depth ~symbol
+    end in
+  Binance_ws_async.connect streams >>= fun (evts, _cleaned_up) ->
+  Pipe.fold evts ~init:init_acc
+    ~f:begin fun ({ prev ; unprocessed ; bids ; asks } as acc) -> function
       | Trade _ -> Deferred.return acc
-      | Depth d ->
-        match Ivar.peek init with
+      | Depth ({ symbol; _ } as d) ->
+        let symbol = String.lowercase symbol in
+        let (_, w) = String.Table.find_exn c symbol in
+        match Ivar.peek (String.Table.find_exn init symbol) with
         | None ->
           (* store events *)
-          Pipe.write c_write (Some d, None, None) >>= fun () ->
-          return (Some d, (Set.add s d), b, a)
+          Pipe.write w (Some d, None, None) >>= fun () ->
+          return (create_acc
+                    ~prev:(String.Map.set prev ~key:symbol ~data:d)
+                    (Set.add unprocessed d) bids asks)
         | Some (last_update_id, (_, _))
-          when (not (Map.is_empty b) || not (Map.is_empty b)) ->
+          when (not (Map.is_empty bids) || not (Map.is_empty asks)) ->
           (* already inited, add event if compliant *)
           let last_update_id =
-            Option.value_map prev_d ~default:last_update_id
+            Option.value_map (String.Map.find prev symbol) ~default:last_update_id
               ~f:(fun { final_update_id ; _ } -> final_update_id) in
           if d.Depth.first_update_id <> last_update_id + 1 then
             failwith "orderbook: sequence problem, aborting" ;
-          let b, a = merge_diffs b a d in
-          Pipe.write c_write (Some d, Some b, Some a) >>= fun () ->
-          return (Some d, s, b, a)
+          let b, a = merge_diffs bids asks d in
+          Pipe.write w (Some d, Some b, Some a) >>= fun () ->
+          return (create_acc
+                    ~prev:(String.Map.set prev ~key:symbol ~data:d)
+                    unprocessed b a)
         | Some (last_update_id, (bids, asks)) -> begin
             (* initialization phase *)
-            let evts = drop_events_before (Set.add s d) last_update_id in
+            let evts = drop_events_before (Set.add unprocessed d) last_update_id in
             match Set.min_elt evts with
             | None ->
               (* No previous events received *)
-              Pipe.write c_write (None, Some bids, Some asks) >>= fun () ->
-              return (None, s, bids, asks)
+              Pipe.write w (None, Some bids, Some asks) >>= fun () ->
+              return (create_acc unprocessed bids asks)
             | Some { first_update_id ; final_update_id ; _ } ->
               (* Previous events received *)
               if first_update_id > last_update_id + 1 ||
@@ -70,8 +90,10 @@ let orderbook symbol init c_write =
                     let bids, asks = merge_diffs bids asks d in
                     Some d, bids, asks
                   end in
-              Pipe.write c_write (None, Some bids, Some asks) >>= fun () ->
-              Deferred.return (prev_d, s, bids, asks)
+              Pipe.write w (None, Some bids, Some asks) >>= fun () ->
+              let prev =
+                Option.map prev_d ~f:(fun data -> (String.Map.set prev ~key:symbol ~data)) in
+              Deferred.return (create_acc ?prev unprocessed bids asks)
           end
     end
 
@@ -86,13 +108,6 @@ let load_books b a =
     end in
   b, a
 
-let init_orderbook ?limit symbol =
-  let open Binance_rest in
-  Fastrest.request (Depth.get ?limit symbol) >>|
-  Result.map ~f:begin fun { Depth.last_update_id ; bids ; asks } ->
-    last_update_id, load_books bids asks
-  end
-
 let wait_n_events c_read n =
   let rec inner n =
     Logs_async.app ~src (fun m -> m "wait for %d events" n) >>= fun () ->
@@ -103,12 +118,13 @@ let wait_n_events c_read n =
       Deferred.unit
   in inner n
 
-let main symbol limit =
-  let init = Ivar.create () in
-  let c_read, c_write = Pipe.create () in
-  don't_wait_for (Deferred.ignore (orderbook symbol init c_write)) ;
+let init_orderbook limit symbol init c_read =
+  let open Binance_rest in
   wait_n_events c_read 10 >>= fun () ->
-  init_orderbook ~limit symbol >>= function
+  Fastrest.request (Depth.get ~limit symbol) >>|
+  Result.map ~f:begin fun { Depth.last_update_id ; bids ; asks } ->
+    last_update_id, load_books bids asks
+  end >>= function
   | Error err ->
     Logs_async.app ~src begin fun m ->
       m "%a" (Fastrest.pp_print_error Binance_rest.BinanceError.pp) err
@@ -124,18 +140,35 @@ let main symbol limit =
         Logs_async.app ~src (fun m -> m "Order books updated")
     end
 
+let main symbols limit =
+  let init = String.Table.create () in
+  let pipes = String.Table.create () in
+  List.iter symbols ~f:begin fun key ->
+    String.Table.set init ~key ~data:(Ivar.create ())
+  end ;
+  List.iter symbols ~f:begin fun key ->
+    String.Table.set pipes ~key ~data:(Pipe.create ())
+  end ;
+  don't_wait_for (Deferred.ignore (orderbook symbols init pipes)) ;
+  List.iter symbols ~f:begin fun s ->
+    let i = String.Table.find_exn init s in
+    let (r, _) = String.Table.find_exn pipes s in
+    don't_wait_for (init_orderbook limit s i r)
+  end ;
+  Deferred.never ()
+
 let command =
   Command.async ~summary:"Binance depth" begin
     let open Command.Let_syntax in
     [%map_open
-      let symbol = anon ("symbol" %: string)
+      let symbols = anon (sequence ("symbol" %: string))
       and limit = flag_optional_with_default_doc
           "limit" int sexp_of_int ~default:100
           ~doc:"N number of book entries"
       and () = Logs_async_reporter.set_level_via_param None in
       fun () ->
         Logs.set_reporter (Logs_async_reporter.reporter ()) ;
-        main symbol limit
+        main symbols limit
     ] end
 
 let () = Command.run command
