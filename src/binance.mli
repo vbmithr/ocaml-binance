@@ -84,7 +84,7 @@ module Trade : sig
     buyer_order_id : int ;
     seller_order_id : int ;
     buyer_is_mm : bool ;
-  }
+  } [@@deriving sexp]
 
   include Comparable.S with type t := t
 
@@ -97,7 +97,7 @@ module Level : sig
   type t = {
     p : float ;
     q : float ;
-  }
+  } [@@deriving sexp]
 
   include Comparable.S with type t := t
 
@@ -112,7 +112,7 @@ module Depth : sig
     final_update_id : int ;
     bids : Level.t list ;
     asks : Level.t list ;
-  }
+  } [@@deriving sexp]
 
   include Comparable.S with type t := t
 

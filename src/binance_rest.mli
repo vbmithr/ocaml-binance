@@ -42,7 +42,7 @@ module Depth : sig
     last_update_id : int ;
     bids : Level.t list ;
     asks : Level.t list ;
-  }
+  } [@@deriving sexp]
 
   val get : ?limit:int -> string -> (get, t, BinanceError.t) service
 end

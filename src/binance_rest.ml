@@ -107,7 +107,7 @@ module Depth = struct
     last_update_id : int ;
     bids : Level.t list ;
     asks : Level.t list ;
-  }
+  } [@@deriving sexp]
 
   let encoding =
     let open Json_encoding in
