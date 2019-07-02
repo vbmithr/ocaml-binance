@@ -1,4 +1,5 @@
 open Core
+open Fastrest
 
 open Binance
 
@@ -35,19 +36,22 @@ module BinanceError = struct
   let to_string = Fmt.to_to_string pp
 end
 
-let authf { Fastrest.params ; _ } { Fastrest.key ; secret ; meta = _ } =
-  let params =
+let authf srv { key ; secret ; meta = _ } =
+  let ps = match srv.params with
+    | Form ps -> ps
+    | Json (_,_) -> assert false in
+  let ps =
     ("timestamp", [Int.to_string (Time_ns.(to_int_ns_since_epoch (now ()) / 1_000_000))]) ::
     ("recvWindow", [Int.to_string 1_000]) ::
-    params in
+    ps in
   let headers = Httpaf.Headers.of_list [
       "X-MBX-APIKEY", key ;
     ] in
-  let ps_encoded = Uri.encoded_of_query params in
+  let ps_encoded = Uri.encoded_of_query ps in
   let signature =
     Digestif.SHA256.(hmac_string ~key:secret ps_encoded |> to_hex) in
-  let params = List.rev (("signature", [signature]) :: List.rev params) in
-  { Fastrest.params ; headers }
+  let ps = List.rev (("signature", [signature]) :: List.rev ps) in
+  { Fastrest.params = Form ps ; headers }
 
 let authf_keyonly { Fastrest.params ; _ } { Fastrest.key ; _ } =
   let headers = Httpaf.Headers.of_list ["X-MBX-APIKEY", key] in
