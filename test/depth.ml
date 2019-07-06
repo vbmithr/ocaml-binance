@@ -5,6 +5,7 @@ open Binance
 open Binance_ws
 
 let src = Logs.Src.create "binance.test.depth"
+module Log_async = (val Logs_async.src_log src : Logs_async.LOG)
 
 let drop_events_before depth last_update_id =
   let _before, after =
@@ -42,7 +43,7 @@ let orderbook symbols init c =
   let streams = List.map symbols ~f:begin fun symbol ->
       Stream.create ~topic:Depth ~symbol
     end in
-  Binance_ws_async.connect streams >>= fun (evts, _cleaned_up) ->
+  Binance_ws_async.connect_exn streams >>= fun (evts, _cleaned_up) ->
   Pipe.fold evts ~init:init_acc
     ~f:begin fun ({ prev ; unprocessed ; bids ; asks } as acc) -> function
       | Trade _ -> Deferred.return acc
@@ -110,7 +111,7 @@ let load_books b a =
 
 let wait_n_events c_read n =
   let rec inner n =
-    Logs_async.app ~src (fun m -> m "wait for %d events" n) >>= fun () ->
+    Log_async.app (fun m -> m "wait for %d events" n) >>= fun () ->
     if n > 0 then
       Pipe.read c_read >>= fun _ ->
       inner (pred n)
@@ -126,18 +127,18 @@ let init_orderbook limit symbol init c_read =
     last_update_id, load_books bids asks
   end >>= function
   | Error err ->
-    Logs_async.app ~src begin fun m ->
+    Log_async.app begin fun m ->
       m "%a" (Fastrest.pp_print_error Binance_rest.BinanceError.pp) err
     end >>= fun () ->
     failwith "Init orderbook failed"
   | Ok snapshot ->
-    Logs_async.app ~src (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
+    Logs_async.app (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
     Ivar.fill init snapshot ;
     Pipe.iter c_read ~f:begin function
       | (None, _bids, _asks) ->
-        Logs_async.app ~src (fun m -> m "Order books initialized %s" symbol)
+        Logs_async.app (fun m -> m "Order books initialized %s" symbol)
       | (Some _, _, _) ->
-        Logs_async.app ~src (fun m -> m "Order books updated")
+        Logs_async.app (fun m -> m "Order books updated")
     end
 
 let main symbols limit =

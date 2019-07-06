@@ -35,7 +35,8 @@ let auth = Fastrest.auth ~key:cfg.key ~secret:cfg.secret ()
 
 let rest = [
   wrap "exchangeInfo"
-    ~timeout:(Time.Span.of_int_sec 10) (fun () -> Fastrest.request (ExchangeInfo.get)) ;
+    ~timeout:(Time.Span.of_int_sec 10)
+    (fun () -> Fastrest.request (ExchangeInfo.get)) ;
   wrap "depth" (fun () -> Fastrest.request (Depth.get ~limit:5 "BNBBTC")) ;
   wrap "stream" begin fun () ->
     Fastrest.request ~auth (User.Stream.start ()) >>= function
@@ -57,6 +58,7 @@ let rest = [
 ]
 
 let () =
+  Logs.set_reporter (Logs_async_reporter.reporter ()) ;
   Logs.set_level ~all:true (Some Debug) ;
   Alcotest.run "binance" [
     "rest", rest ;

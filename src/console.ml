@@ -14,8 +14,9 @@ let command =
       and () = Logs_async_reporter.set_level_via_param None in
       fun () ->
         Logs.set_reporter (Logs_async_reporter.reporter ()) ;
-        Binance_ws_async.connect
-          (List.map ~f:Stream.of_string streams) >>= fun (evts, _cleaned_up) ->
+        Binance_ws_async.connect_exn
+          (List.map ~f:Stream.of_string streams) >>=
+        fun (evts, _cleaned_up) ->
         Pipe.iter evts ~f:begin function
           | Trade t ->
             Logs_async.app ~src (fun m -> m "T %a" Trade.pp t)

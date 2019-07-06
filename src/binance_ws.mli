@@ -18,5 +18,8 @@ end
 type event =
   | Trade of Trade.t
   | Depth of Depth.t
+[@@deriving sexp]
+
+val pp_print_event : Format.formatter -> event -> unit
 
 val event_encoding : event Json_encoding.encoding

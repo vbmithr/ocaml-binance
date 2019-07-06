@@ -40,6 +40,10 @@ end
 type event =
   | Trade of Trade.t
   | Depth of Depth.t
+[@@deriving sexp]
+
+let pp_print_event ppf e =
+  Format.fprintf ppf "%a" Sexplib.Sexp.pp (sexp_of_event e)
 
 let trade t = Trade t
 let depth d = Depth d
