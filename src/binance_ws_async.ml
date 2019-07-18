@@ -22,7 +22,7 @@ let connect ?(buf=Bi_outbuf.create 4096) ?hb_ns streams =
   Result.map ~f:begin fun (r, w, cleaned_up) ->
   Pipe.close w ;
   let client_read = Pipe.map r ~f:begin fun msg ->
-      Yojson_repr.destruct_safe event_encoding (Yojson.Safe.from_string ~buf msg)
+      Yojson_repr.destruct_safe encoding (Yojson.Safe.from_string ~buf msg)
     end in
   (client_read, cleaned_up)
   end

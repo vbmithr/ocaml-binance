@@ -37,25 +37,25 @@ module Stream = struct
     String.concat "/" (List.map to_string streams)
 end
 
-type event =
+type t =
   | Trade of Trade.t
   | Depth of Depth.t
 [@@deriving sexp]
 
-let pp_print_event ppf e =
-  Format.fprintf ppf "%a" Sexplib.Sexp.pp (sexp_of_event e)
+let pp ppf e =
+  Format.fprintf ppf "%a" Sexplib.Sexp.pp (sexp_of_t e)
 
 let trade t = Trade t
 let depth d = Depth d
 
-let event_encoding =
+let encoding =
   let open Json_encoding in
   union [
     case Trade.encoding (function Trade t -> Some t | _ -> None) trade ;
     case Depth.encoding (function Depth d -> Some d | _ -> None) depth ;
   ]
 
-let event_encoding =
+let encoding =
   let open Json_encoding in
   let to_json = function
       | Trade t -> (t.symbol ^ "@trade", Trade t)
@@ -64,5 +64,5 @@ let event_encoding =
   conv to_json of_json
     (obj2
        (req "stream" string)
-       (req "data" event_encoding))
+       (req "data" encoding))
 

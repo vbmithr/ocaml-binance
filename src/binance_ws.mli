@@ -15,11 +15,10 @@ module Stream : sig
   val to_path : t list -> string
 end
 
-type event =
+type t =
   | Trade of Trade.t
   | Depth of Depth.t
 [@@deriving sexp]
 
-val pp_print_event : Format.formatter -> event -> unit
-
-val event_encoding : event Json_encoding.encoding
+val pp : Format.formatter -> t -> unit
+val encoding : t Json_encoding.encoding
