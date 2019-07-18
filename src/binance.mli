@@ -54,13 +54,14 @@ module OrderType : sig
   val encoding : t Json_encoding.encoding
 end
 
-open Base
-
-val float_as_string : float Json_encoding.encoding
+val safe_float : float Json_encoding.encoding
 
 module Ptime : sig
   include module type of Ptime with type t = Ptime.t
-  val float_encoding : t Json_encoding.encoding
+
+  val t_of_sexp : Sexplib.Sexp.t -> Ptime.t
+  val sexp_of_t : Ptime.t -> Sexplib.Sexp.t
+  val encoding : t Json_encoding.encoding
 end
 
 module Yojson_repr : sig
@@ -73,50 +74,11 @@ module Yojson_repr : sig
     (Json_repr.Yojson.value -> 't) -> schema:Json_schema.schema -> 't encoding
 end
 
-module Trade : sig
-  type t = {
-    event_ts : Ptime.t ;
-    trade_ts : Ptime.t ;
-    symbol : string ;
-    tid : int ;
-    p : float ;
-    q : float ;
-    buyer_order_id : int ;
-    seller_order_id : int ;
-    buyer_is_mm : bool ;
-  } [@@deriving sexp]
-
-  include Comparable.S with type t := t
-
-  val encoding : t Json_encoding.encoding
-  val pp : t Fmt.t
-  val to_string : t -> string
-end
-
 module Level : sig
   type t = {
     p : float ;
     q : float ;
   } [@@deriving sexp]
 
-  include Comparable.S with type t := t
-
   val encoding : t Json_encoding.encoding
-end
-
-module Depth : sig
-  type t = {
-    event_ts : Ptime.t ;
-    symbol : string ;
-    first_update_id : int ;
-    final_update_id : int ;
-    bids : Level.t list ;
-    asks : Level.t list ;
-  } [@@deriving sexp]
-
-  include Comparable.S with type t := t
-
-  val encoding : t Json_encoding.encoding
-  val pp : t Fmt.t
-  val to_string : t -> string
 end

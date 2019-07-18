@@ -4,7 +4,7 @@
  (preprocess (pps ppx_sexp_conv ppx_let))
  (modules Binance)
  (synopsis "Binance API types")
- (libraries sexplib base fmt ocplib-json-typed ptime yojson))
+ (libraries sexplib fmt ocplib-json-typed ptime yojson))
 
 (library
  (name        binance_rest)
@@ -20,7 +20,7 @@
  (preprocess (pps ppx_sexp_conv ppx_let))
  (synopsis "Binance Websocket API")
  (modules Binance_ws)
- (libraries binance fmt yojson))
+ (libraries binance fmt))
 
 (library
  (name        binance_ws_async)

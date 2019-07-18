@@ -35,7 +35,7 @@ end
 
 module Depth : sig
   type t = {
-    last_update_id : int ;
+    last_update_id : int64 ;
     bids : Level.t list ;
     asks : Level.t list ;
   } [@@deriving sexp]

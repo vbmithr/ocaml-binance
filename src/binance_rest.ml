@@ -104,7 +104,7 @@ end
 
 module Depth = struct
   type t = {
-    last_update_id : int ;
+    last_update_id : int64 ;
     bids : Level.t list ;
     asks : Level.t list ;
   } [@@deriving sexp]
@@ -115,7 +115,7 @@ module Depth = struct
       (fun { last_update_id ; bids ; asks } -> (last_update_id, bids, asks))
       (fun (last_update_id, bids, asks) -> { last_update_id ; bids ; asks })
       (obj3
-         (req "lastUpdateId" int)
+         (req "lastUpdateId" int53)
          (req "bids" (list Level.encoding))
          (req "asks" (list Level.encoding)))
 
@@ -146,8 +146,8 @@ module User = struct
         (fun (asset, free, locked) -> { asset ; free ; locked })
         (obj3
            (req "asset" string)
-           (req "free" float_as_string)
-           (req "locked" float_as_string))
+           (req "free" safe_float)
+           (req "locked" safe_float))
   end
 
   module AccountInfo = struct
@@ -185,7 +185,7 @@ module User = struct
            (req "canTrade" bool)
            (req "canWithdraw" bool)
            (req "canDeposit" bool)
-           (req "updateTime" Ptime.float_encoding)
+           (req "updateTime" Ptime.encoding)
            (req "balances" (list Balance.encoding))
            (req "accountType" string))
 
@@ -218,9 +218,9 @@ module User = struct
         (req "symbol" string)
         (req "orderId" int)
         (req "clientOrderId" string)
-        (req "price" float_as_string)
-        (req "origQty" float_as_string)
-        (req "executedQty" float_as_string)
+        (req "price" safe_float)
+        (req "origQty" safe_float)
+        (req "executedQty" safe_float)
         (req "status" OrderStatus.encoding)
         (req "timeInForce" TimeInForce.encoding)
         (req "type" OrderType.encoding)
@@ -245,7 +245,7 @@ module User = struct
                          side ; stopPrice = 0.; icebergQty = 0.;
                          time ; isWorking = false})
         (merge_objs base_status_obj
-           (obj1 (req "transactTime" Ptime.float_encoding)))
+           (obj1 (req "transactTime" Ptime.encoding)))
 
     let encoding =
       let open Json_encoding in
@@ -268,9 +268,9 @@ module User = struct
             time ; isWorking })
         (merge_objs base_status_obj
            (obj4
-              (req "stopPrice" float_as_string)
+              (req "stopPrice" safe_float)
               (req "icebergQty" float)
-              (req "time" Ptime.float_encoding)
+              (req "time" Ptime.encoding)
               (req "isWorking" bool)))
 
     let pp ppf t =

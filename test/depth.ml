@@ -9,8 +9,9 @@ module Log_async = (val Logs_async.src_log src : Logs_async.LOG)
 
 let drop_events_before depth last_update_id =
   let _before, after =
-    Set.partition_tf depth ~f:(fun { Depth.final_update_id ; _ } ->
-        final_update_id <= last_update_id) in
+    Depth.Set.partition begin fun { Depth.final_update_id ; _ } ->
+      final_update_id <= last_update_id
+    end depth in
   after
 
 let merge_diffs b a { Depth.bids ; Depth.asks ; _ } =
@@ -23,10 +24,10 @@ let merge_diffs b a { Depth.bids ; Depth.asks ; _ } =
   b, a
 
 type acc = {
-  prev: (string, Depth.t, Base.String.comparator_witness) Map.t ;
-  unprocessed: (Depth.t, Depth.comparator_witness) Set.t ;
-  bids: (float, float, Base.Float.comparator_witness) Map.t ;
-  asks: (float, float, Base.Float.comparator_witness) Map.t ;
+  prev: Depth.t String.Map.t ;
+  unprocessed: Depth.Set.t ;
+  bids: float Float.Map.t ;
+  asks: float Float.Map.t ;
 }
 
 let create_acc ?(prev=String.Map.empty) unprocessed bids asks =
@@ -34,7 +35,7 @@ let create_acc ?(prev=String.Map.empty) unprocessed bids asks =
 
 let init_acc = {
   prev = String.Map.empty ;
-  unprocessed = Set.empty (module Depth) ;
+  unprocessed = Depth.Set.empty ;
   bids = Map.empty (module Float) ;
   asks = Map.empty (module Float) ;
 }
@@ -56,14 +57,14 @@ let orderbook symbols init c =
           Pipe.write w (Some d, None, None) >>= fun () ->
           return (create_acc
                     ~prev:(String.Map.set prev ~key:symbol ~data:d)
-                    (Set.add unprocessed d) bids asks)
+                    (Depth.Set.add d unprocessed) bids asks)
         | Some (last_update_id, (_, _))
           when (not (Map.is_empty bids) || not (Map.is_empty asks)) ->
           (* already inited, add event if compliant *)
           let last_update_id =
             Option.value_map (String.Map.find prev symbol) ~default:last_update_id
               ~f:(fun { final_update_id ; _ } -> final_update_id) in
-          if d.Depth.first_update_id <> last_update_id + 1 then
+          if d.Depth.first_update_id <> Int64.succ last_update_id then
             failwith "orderbook: sequence problem, aborting" ;
           let b, a = merge_diffs bids asks d in
           Pipe.write w (Some d, Some b, Some a) >>= fun () ->
@@ -72,25 +73,24 @@ let orderbook symbols init c =
                     unprocessed b a)
         | Some (last_update_id, (bids, asks)) -> begin
             (* initialization phase *)
-            let evts = drop_events_before (Set.add unprocessed d) last_update_id in
-            match Set.min_elt evts with
+            let evts = drop_events_before (Depth.Set.add d unprocessed) last_update_id in
+            match Depth.Set.min_elt_opt evts with
             | None ->
               (* No previous events received *)
               Pipe.write w (None, Some bids, Some asks) >>= fun () ->
               return (create_acc unprocessed bids asks)
             | Some { first_update_id ; final_update_id ; _ } ->
               (* Previous events received *)
-              if first_update_id > last_update_id + 1 ||
-                 final_update_id < last_update_id + 1 then
-                failwithf "orderbook: inconsistent data received (%d %d %d)"
+              if first_update_id > Int64.succ last_update_id ||
+                 final_update_id < Int64.succ last_update_id then
+                failwithf "orderbook: inconsistent data received (%Ld %Ld %Ld)"
                   first_update_id final_update_id last_update_id () ;
               let prev_d, bids, asks =
-                Set.fold evts
-                  ~init:(None, bids, asks)
-                  ~f:begin fun (_prev_d, bids, asks) d ->
+                Depth.Set.fold
+                  begin fun d (_prev_d, bids, asks) ->
                     let bids, asks = merge_diffs bids asks d in
                     Some d, bids, asks
-                  end in
+                  end evts (None, bids, asks) in
               Pipe.write w (None, Some bids, Some asks) >>= fun () ->
               let prev =
                 Option.map prev_d ~f:(fun data -> (String.Map.set prev ~key:symbol ~data)) in
