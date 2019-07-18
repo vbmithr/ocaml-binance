@@ -35,15 +35,20 @@ let connect_exn ?buf ?hb_ns streams =
 
 let with_connection ?buf ?hb_ns streams ~f =
   connect ?buf ?hb_ns streams >>= function
-  | Error e -> return (Error e)
-  | Ok (r, _cleaned_up) ->
-    Monitor.protect (fun () -> f r) ~finally:begin fun () ->
+  | Error e -> return (Error (e :> [`Internal of exn|`WS of Fastws_async.error|`Cleaned_up]))
+  | Ok (r, cleaned_up) ->
+    Monitor.protect begin fun () ->
+      Deferred.any [
+        (cleaned_up >>| fun () -> Error `Cleaned_up) ;
+        (f r >>| fun v -> Ok v) ;
+      ]
+    end ~finally:begin fun () ->
       Pipe.close_read r ; Deferred.unit
-    end >>| fun v ->
-    Ok v
+    end
 
 let with_connection_exn ?buf ?hb_ns streams ~f =
   with_connection ?buf ?hb_ns streams ~f >>= function
   | Error (`Internal exn) -> raise exn
   | Error (`WS e) -> Fastws_async.raise_error e
+  | Error `Cleaned_up -> failwith "cleaned up"
   | Ok a -> return a
