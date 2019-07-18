@@ -142,6 +142,7 @@ let init_orderbook limit symbol init c_read =
     end
 
 let main symbols limit =
+  let symbols = List.map symbols ~f:String.lowercase in
   let init = String.Table.create () in
   let pipes = String.Table.create () in
   List.iter symbols ~f:begin fun key ->
