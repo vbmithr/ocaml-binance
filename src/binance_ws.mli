@@ -7,10 +7,10 @@ module Trade : sig
     symbol : string ;
     side : [`Buy | `Sell] ;
     id : int64 ;
-    p : float ;
-    q : float ;
     buyer_order_id : int64 ;
     seller_order_id : int64 ;
+    p : float ;
+    q : float ;
   } [@@deriving sexp]
 
   val encoding : t Json_encoding.encoding
