@@ -9,7 +9,7 @@ module BinanceError = struct
   type t = {
     code : int ;
     msg : string ;
-  }
+  } [@@deriving sexp]
 
   let encoding =
     let open Json_encoding in

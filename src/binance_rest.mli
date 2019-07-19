@@ -7,7 +7,7 @@ module BinanceError : sig
   type t = {
     code : int ;
     msg : string ;
-  }
+  } [@@deriving sexp]
 
   val encoding : t Json_encoding.encoding
   val or_error :
