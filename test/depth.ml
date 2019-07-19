@@ -7,10 +7,10 @@ open Binance_ws
 let src = Logs.Src.create "binance.test.depth"
 module Log_async = (val Logs_async.src_log src : Logs_async.LOG)
 
-let drop_events_before depth last_update_id =
+let drop_events_before depth id =
   let _before, after =
-    Depth.Set.partition begin fun { Depth.final_update_id ; _ } ->
-      final_update_id <= last_update_id
+    Depth.Set.partition begin fun { Depth.last_update_id ; _ } ->
+      last_update_id <= id
     end depth in
   after
 
@@ -63,7 +63,7 @@ let orderbook symbols init c =
           (* already inited, add event if compliant *)
           let last_update_id =
             Option.value_map (String.Map.find prev symbol) ~default:last_update_id
-              ~f:(fun { final_update_id ; _ } -> final_update_id) in
+              ~f:(fun { last_update_id ; _ } -> last_update_id) in
           if d.Depth.first_update_id <> Int64.succ last_update_id then
             failwith "orderbook: sequence problem, aborting" ;
           let b, a = merge_diffs bids asks d in
@@ -71,20 +71,20 @@ let orderbook symbols init c =
           return (create_acc
                     ~prev:(String.Map.set prev ~key:symbol ~data:d)
                     unprocessed b a)
-        | Some (last_update_id, (bids, asks)) -> begin
+        | Some (id, (bids, asks)) -> begin
             (* initialization phase *)
-            let evts = drop_events_before (Depth.Set.add d unprocessed) last_update_id in
+            let evts = drop_events_before (Depth.Set.add d unprocessed) id in
             match Depth.Set.min_elt_opt evts with
             | None ->
               (* No previous events received *)
               Pipe.write w (None, Some bids, Some asks) >>= fun () ->
               return (create_acc unprocessed bids asks)
-            | Some { first_update_id ; final_update_id ; _ } ->
+            | Some { first_update_id ; last_update_id ; _ } ->
               (* Previous events received *)
-              if first_update_id > Int64.succ last_update_id ||
-                 final_update_id < Int64.succ last_update_id then
+              if first_update_id > Int64.succ id ||
+                 last_update_id < Int64.succ id then
                 failwithf "orderbook: inconsistent data received (%Ld %Ld %Ld)"
-                  first_update_id final_update_id last_update_id () ;
+                  first_update_id last_update_id last_update_id () ;
               let prev_d, bids, asks =
                 Depth.Set.fold
                   begin fun d (_prev_d, bids, asks) ->

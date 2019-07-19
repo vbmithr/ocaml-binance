@@ -49,12 +49,12 @@ module Depth = struct
       event_ts : Ptime.t ;
       symbol : string ;
       first_update_id : int64 ;
-      final_update_id : int64 ;
+      last_update_id : int64 ;
       bids : Level.t list ;
       asks : Level.t list ;
     } [@@deriving sexp]
 
-    let compare a b = Int64.compare a.final_update_id b.final_update_id
+    let compare a b = Int64.compare a.last_update_id b.last_update_id
   end
 
   include T
@@ -64,11 +64,11 @@ module Depth = struct
     let open Json_encoding in
     conv
       (fun { event_ts ; symbol ; first_update_id ;
-             final_update_id ; bids ; asks } ->
-        ((), (event_ts, symbol, first_update_id, final_update_id, bids, asks)))
-      (fun ((), (event_ts, symbol, first_update_id, final_update_id, bids, asks)) ->
+             last_update_id ; bids ; asks } ->
+        ((), (event_ts, symbol, first_update_id, last_update_id, bids, asks)))
+      (fun ((), (event_ts, symbol, first_update_id, last_update_id, bids, asks)) ->
          { event_ts ; symbol ; first_update_id ;
-           final_update_id ; bids ; asks })
+           last_update_id ; bids ; asks })
       (merge_objs unit (obj6
                           (req "E" Ptime.encoding)
                           (req "s" string)

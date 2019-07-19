@@ -23,7 +23,7 @@ module Depth : sig
     event_ts : Ptime.t ;
     symbol : string ;
     first_update_id : int64 ;
-    final_update_id : int64 ;
+    last_update_id : int64 ;
     bids : Level.t list ;
     asks : Level.t list ;
   } [@@deriving sexp]
