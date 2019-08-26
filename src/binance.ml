@@ -194,3 +194,29 @@ module Level = struct
       (tup2 string string)
 end
 
+module Sym = struct
+  type t = {
+    symbol: string ;
+    base: string ;
+    base_decimals: int ;
+    quote: string ;
+    quote_decimals: int ;
+  } [@@deriving sexp]
+
+  let compare a b = String.compare a.symbol b.symbol
+
+  let encoding =
+    let open Json_encoding in
+    conv
+      (fun { symbol ; base ; base_decimals ; quote ; quote_decimals } ->
+         (), (symbol, base, base_decimals, quote, quote_decimals))
+      (fun ((), (symbol, base, base_decimals, quote, quote_decimals)) ->
+         { symbol ; base ; base_decimals ; quote ; quote_decimals })
+      (merge_objs unit
+         (obj5
+            (req "symbol" string)
+            (req "baseAsset" string)
+            (req "baseAssetPrecision" int)
+            (req "quoteAsset" string)
+            (req "quotePrecision" int)))
+end

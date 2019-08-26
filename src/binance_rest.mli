@@ -17,18 +17,6 @@ module BinanceError : sig
 end
 
 module ExchangeInfo : sig
-  module Sym : sig
-    type t = {
-      symbol: string ;
-      base: string ;
-      base_decimals: int ;
-      quote: string ;
-      quote_decimals: int ;
-    } [@@deriving sexp]
-
-    val compare : t -> t -> int
-  end
-
   val encoding : Sym.t list Json_encoding.encoding
   val get : (form, Sym.t list, BinanceError.t) service
 end

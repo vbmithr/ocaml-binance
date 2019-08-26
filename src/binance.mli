@@ -82,3 +82,16 @@ module Level : sig
 
   val encoding : t Json_encoding.encoding
 end
+
+module Sym : sig
+  type t = {
+    symbol: string ;
+    base: string ;
+    base_decimals: int ;
+    quote: string ;
+    quote_decimals: int ;
+  } [@@deriving sexp]
+
+  val compare : t -> t -> int
+  val encoding : t Json_encoding.encoding
+end
