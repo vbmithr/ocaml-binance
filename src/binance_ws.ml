@@ -23,7 +23,7 @@ module Trade = struct
              buyer_order_id, seller_order_id, side = `Buy))
       (fun ((), (event_ts, trade_ts, symbol, id, p, q,
                  buyer_order_id, seller_order_id, buyer_is_mm)) ->
-        let side = if buyer_is_mm then `Buy else `Sell in
+        let side = if buyer_is_mm then `Sell else `Buy in
         { event_ts ; trade_ts ; symbol ; side ; id ; p ; q ;
           buyer_order_id ; seller_order_id })
       (merge_objs unit
