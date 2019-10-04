@@ -126,11 +126,7 @@ let init_orderbook limit symbol init c_read =
   Result.map ~f:begin fun { Depth.last_update_id ; bids ; asks } ->
     last_update_id, load_books bids asks
   end >>= function
-  | Error err ->
-    Log_async.app begin fun m ->
-      m "%a" (Fastrest.pp_print_error Binance_rest.BinanceError.pp) err
-    end >>= fun () ->
-    failwith "Init orderbook failed"
+  | Error e -> Error.raise e
   | Ok snapshot ->
     Logs_async.app (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
     Ivar.fill init snapshot ;

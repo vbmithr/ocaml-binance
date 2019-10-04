@@ -21,11 +21,7 @@ let wrap ?timeout ?(speed=`Quick) n f =
   Alcotest_async.test_case ?timeout n speed begin fun () ->
     f () >>= function
     | Ok _ -> Deferred.unit
-    | Error (Fastrest.Http _e) ->
-      Alcotest.fail "Client connection error"
-    | Error (App err) ->
-      let msg = (Binance_rest.BinanceError.to_string err) in
-      Alcotest.fail msg
+    | Error e ->  Alcotest.fail (Error.to_string_hum e)
   end
 
 open Binance

@@ -1,24 +1,9 @@
-open Core
-
 open Fastrest
 open Binance
 
-module BinanceError : sig
-  type t = {
-    code : int ;
-    msg : string ;
-  } [@@deriving sexp]
-
-  val encoding : t Json_encoding.encoding
-  val or_error :
-    'a Json_encoding.encoding -> ('a, t) result Json_encoding.encoding
-  val pp : t Fmt.t
-  val to_string : t -> string
-end
-
 module ExchangeInfo : sig
   val encoding : Sym.t list Json_encoding.encoding
-  val get : (form, Sym.t list, BinanceError.t) service
+  val get : (form, Sym.t list) service
 end
 
 module Depth : sig
@@ -28,7 +13,7 @@ module Depth : sig
     asks : Level.t list ;
   } [@@deriving sexp]
 
-  val get : ?limit:int -> string -> (form, t, BinanceError.t) service
+  val get : ?limit:int -> string -> (form, t) service
 end
 
 module User : sig
@@ -86,10 +71,10 @@ module User : sig
   end
 
   val open_orders : string ->
-    (form, OrderStatus.t list, BinanceError.t) service
+    (form, OrderStatus.t list) service
 
   val account_info : unit ->
-    (form, AccountInfo.t, BinanceError.t) service
+    (form, AccountInfo.t) service
 
   val order :
     ?dry_run:bool ->
@@ -102,11 +87,11 @@ module User : sig
     ?clientOrdID:string ->
     ?stopPx:float ->
     ?icebergQty:float -> unit ->
-    (form, OrderStatus.t option, BinanceError.t) service
+    (form, OrderStatus.t option) service
 
   module Stream : sig
-    val start : unit -> (form, string, BinanceError.t) service
-    val renew : listenKey:string -> (form, unit, BinanceError.t) service
-    val close : listenKey:string -> (form, unit, BinanceError.t) service
+    val start : unit -> (form, string) service
+    val renew : listenKey:string -> (form, unit) service
+    val close : listenKey:string -> (form, unit) service
   end
 end

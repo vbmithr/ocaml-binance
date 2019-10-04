@@ -5,36 +5,20 @@ open Binance
 
 let url = Uri.make ~scheme:"https" ~host:"api.binance.com" ()
 
-module BinanceError = struct
-  type t = {
-    code : int ;
-    msg : string ;
-  } [@@deriving sexp]
-
+let or_error enc =
+  let open Json_encoding in
   let encoding =
-    let open Json_encoding in
-    conv
-      (fun { code ; msg } -> (code, msg))
-      (fun (code, msg) -> { code ; msg })
-      (obj2
-         (req "code" int)
-         (req "msg" string))
-
-  let or_error enc =
-    let open Json_encoding in
-    union [
-      case encoding
-        (function Ok _ -> None | Error e -> Some e)
-        (function e -> Error e) ;
-      case enc
-        (function Ok v -> Some v | Error _ -> None)
-        (function v -> Ok v) ;
-    ]
-
-  let pp ppf t =
-    Json_repr.(pp (module Yojson) ppf (Yojson_repr.construct encoding t))
-  let to_string = Fmt.to_to_string pp
-end
+    conv (fun _ -> assert false)
+         (fun (code, msg) -> Error.createf "%d: %s" code msg)
+         (obj2 (req "code" int) (req "msg" string)) in
+  union [
+    case encoding
+      (function Ok _ -> None | Error e -> Some e)
+      (function e -> Error e) ;
+    case enc
+      (function Ok v -> Some v | Error _ -> None)
+      (function v -> Ok v) ;
+  ]
 
 let authf srv { key ; secret ; meta = _ } =
   let ps = match srv.params with
@@ -71,7 +55,7 @@ module ExchangeInfo = struct
             (req "symbols" (list Sym.encoding))))
 
   let get =
-    Fastrest.get (BinanceError.or_error encoding)
+    Fastrest.get (or_error encoding)
       (Uri.with_path url "api/v1/exchangeInfo")
 end
 
@@ -97,7 +81,7 @@ module Depth = struct
       invalid_argf "Depth.get: invalid limit %d, must belong to [5; \
                     10; 20; 50; 100; 500; 1000]" limit () ;
     Fastrest.get
-      (BinanceError.or_error encoding)
+      (or_error encoding)
       (with_path_and_query url
          ~path:"api/v1/depth"
          ~query:["symbol", [String.uppercase symbol] ;
@@ -274,17 +258,17 @@ module User = struct
         case OrderStatus.order_response_encoding
           Fn.id (fun orderStatus -> Some orderStatus) ;
       ] in
-    Fastrest.post_form ~params ~auth:authf (BinanceError.or_error enc)
+    Fastrest.post_form ~params ~auth:authf (or_error enc)
       (Uri.with_path url ("api/v3/order" ^ if dry_run then "/test" else ""))
 
   let open_orders symbol =
     Fastrest.get ~auth:authf
-      (BinanceError.or_error (Json_encoding.list OrderStatus.encoding))
+      (or_error (Json_encoding.list OrderStatus.encoding))
       Uri.(with_query (with_path url "api/v3/openOrders") ["symbol", [symbol]])
 
   let account_info () =
     Fastrest.get ~auth:authf
-      (BinanceError.or_error AccountInfo.encoding)
+      (or_error AccountInfo.encoding)
       (Uri.with_path url "api/v3/account")
 
   module Stream = struct
@@ -294,19 +278,19 @@ module User = struct
 
     let start () =
       Fastrest.post_form ~auth:authf_keyonly
-        (BinanceError.or_error encoding)
+        (or_error encoding)
         (Uri.with_path url "api/v1/userDataStream")
 
     let renew ~listenKey =
       Fastrest.put_form
         ~auth:authf_keyonly
         ~params:["listenKey", [listenKey]]
-        (BinanceError.or_error Json_encoding.empty)
+        (or_error Json_encoding.empty)
         (Uri.with_path url "api/v1/userDataStream")
 
     let close ~listenKey =
       Fastrest.delete ~auth:authf_keyonly
-      (BinanceError.or_error Json_encoding.empty)
+      (or_error Json_encoding.empty)
       Uri.(with_query (with_path url "api/v1/userDataStream")
              ["listenKey", [listenKey]])
   end
