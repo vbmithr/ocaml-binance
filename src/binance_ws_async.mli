@@ -7,9 +7,7 @@ val connect :
   ?buf:Bi_outbuf.t ->
   ?hb_ns:Time_stamp_counter.Calibrator.t * Int63.t ->
   Stream.t list ->
-  (t Pipe.Reader.t * unit Deferred.t,
-   [ `Internal of exn
-   | `WS of Fastws_async.error ]) result Deferred.t
+  (t Pipe.Reader.t * unit Deferred.t) Deferred.Or_error.t
 
 val connect_exn :
   ?buf:Bi_outbuf.t ->
@@ -22,10 +20,7 @@ val with_connection :
   ?hb_ns:Time_stamp_counter.Calibrator.t * Int63.t ->
   Stream.t list ->
   f:(t Pipe.Reader.t -> 'a Deferred.t) ->
-  ('a,  [ `Internal of exn
-        | `WS of Fastws_async.error
-        | `Cleaned_up
-        ]) result Deferred.t
+  'a Deferred.Or_error.t
 
 val with_connection_exn :
   ?buf:Bi_outbuf.t ->
