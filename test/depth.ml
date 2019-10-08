@@ -163,7 +163,7 @@ let command =
       and limit = flag_optional_with_default_doc
           "limit" int sexp_of_int ~default:100
           ~doc:"N number of book entries"
-      and () = Logs_async_reporter.set_level_via_param None in
+      and () = Logs_async_reporter.set_level_via_param [] in
       fun () ->
         Logs.set_reporter (Logs_async_reporter.reporter ()) ;
         main symbols limit

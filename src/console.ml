@@ -19,7 +19,7 @@ let command =
     let open Command.Let_syntax in
     [%map_open
       let streams = anon (sequence ("stream" %: string))
-      and () = Logs_async_reporter.set_level_via_param None in
+      and () = Logs_async_reporter.set_level_via_param [] in
       fun () ->
         Logs.set_reporter (Logs_async_reporter.reporter ()) ;
         main streams
