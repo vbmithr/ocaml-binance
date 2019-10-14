@@ -5,7 +5,7 @@ module Trade : sig
     event_ts : Ptime.t ;
     trade_ts : Ptime.t ;
     symbol : string ;
-    side : [`Buy | `Sell] ;
+    side : Side.t ;
     id : int64 ;
     buyer_order_id : int64 ;
     seller_order_id : int64 ;

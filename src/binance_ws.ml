@@ -6,7 +6,7 @@ module Trade = struct
     event_ts : Ptime.t ;
     trade_ts : Ptime.t ;
     symbol : string ;
-    side : [`Buy | `Sell] ;
+    side : Side.t ;
     id : int64 ;
     buyer_order_id : int64 ;
     seller_order_id : int64 ;
@@ -20,10 +20,10 @@ module Trade = struct
       (fun { event_ts ; trade_ts ; symbol ; side ; id ; p ; q ;
              buyer_order_id ; seller_order_id } ->
         (), (event_ts, trade_ts, symbol, id, p, q,
-             buyer_order_id, seller_order_id, side = `Buy))
+             buyer_order_id, seller_order_id, side = Side.Buy))
       (fun ((), (event_ts, trade_ts, symbol, id, p, q,
                  buyer_order_id, seller_order_id, buyer_is_mm)) ->
-        let side = if buyer_is_mm then `Sell else `Buy in
+        let side = if buyer_is_mm then Fixtypes.Side.Sell else Buy in
         { event_ts ; trade_ts ; symbol ; side ; id ; p ; q ;
           buyer_order_id ; seller_order_id })
       (merge_objs unit

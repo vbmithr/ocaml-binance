@@ -47,7 +47,7 @@ let rest = [
       (User.order
          ~dry_run:true
          ~symbol:"BNBBTC"
-         ~side:`Buy
+         ~side:Buy
          ~kind:OrderType.Market
          ~qty:2. ())
   end

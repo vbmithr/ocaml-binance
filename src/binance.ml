@@ -1,22 +1,22 @@
 open Sexplib.Std
 
 module Side = struct
-  type t = [`Buy | `Sell]
+  type t = Fixtypes.Side.t = Buy | Sell [@@deriving sexp]
 
   let pp ppf = function
-    | `Buy -> Format.pp_print_string ppf "BUY"
-    | `Sell -> Format.pp_print_string ppf "SELL"
+    | Fixtypes.Side.Buy -> Format.pp_print_string ppf "BUY"
+    | Sell -> Format.pp_print_string ppf "SELL"
 
   let to_string = Fmt.to_to_string pp
 
   let of_string = function
-    | "BUY" -> Some `Buy
-    | "SELL" -> Some `Sell
+    | "BUY" -> Some Fixtypes.Side.Buy
+    | "SELL" -> Some Sell
     | _ -> None
 
   let of_string_exn = function
-    | "BUY" -> `Buy
-    | "SELL" -> `Sell
+    | "BUY" -> Fixtypes.Side.Buy
+    | "SELL" -> Sell
     | _ -> invalid_arg "Side.of_string_exn"
 
   let encoding =

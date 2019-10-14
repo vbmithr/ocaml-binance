@@ -1,5 +1,5 @@
 module Side : sig
-  type t = [`Buy | `Sell]
+  type t = Fixtypes.Side.t = Buy | Sell [@@deriving sexp]
   val pp : t Fmt.t
   val to_string : t -> string
   val of_string : string -> t option
