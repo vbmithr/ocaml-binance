@@ -1,12 +1,12 @@
 open Core
 open Fastrest
+open Json_encoding
 
 open Binance
 
 let url = Uri.make ~scheme:"https" ~host:"api.binance.com" ()
 
 let or_error enc =
-  let open Json_encoding in
   let encoding =
     conv (fun _ -> assert false)
          (fun (code, msg) -> Error.createf "%d: %s" code msg)
@@ -46,7 +46,6 @@ let with_path_and_query ~path ~query uri =
 
 module ExchangeInfo = struct
   let encoding =
-    let open Json_encoding in
     conv
       (fun syms -> (), syms)
       (fun ((), syms) -> syms)
@@ -67,7 +66,6 @@ module Depth = struct
   } [@@deriving sexp]
 
   let encoding =
-    let open Json_encoding in
     conv
       (fun { last_update_id ; bids ; asks } -> (last_update_id, bids, asks))
       (fun (last_update_id, bids, asks) -> { last_update_id ; bids ; asks })
@@ -97,7 +95,6 @@ module User = struct
     }
 
     let encoding =
-      let open Json_encoding in
       conv
         (fun { asset ; free ; locked } -> (asset, free, locked))
         (fun (asset, free, locked) -> { asset ; free ; locked })
@@ -122,7 +119,6 @@ module User = struct
     }
 
     let encoding =
-      let open Json_encoding in
       conv
         (fun { makerC ; takerC ; buyerC ; sellerC ;
                trade ; withdraw ; deposit ; timestamp ;
@@ -170,7 +166,6 @@ module User = struct
     }
 
     let base_status_obj =
-      let open Json_encoding in
       obj10
         (req "symbol" string)
         (req "orderId" int)
@@ -184,7 +179,6 @@ module User = struct
         (req "side" Side.encoding)
 
     let order_response_encoding =
-      let open Json_encoding in
       conv
         (fun { symbol ; orderId ; clientOrderId ;
                price ; origQty ; executedQty ;
@@ -205,7 +199,6 @@ module User = struct
            (obj1 (req "transactTime" Ptime.encoding)))
 
     let encoding =
-      let open Json_encoding in
       conv
         (fun { symbol ; orderId ; clientOrderId ;
                price ; origQty ; executedQty ;
@@ -252,7 +245,6 @@ module User = struct
         Option.map icebergQty ~f:(fun q -> "icebergQty", [Printf.sprintf "%.6f" q]) ;
       ] in
     let enc =
-      let open Json_encoding in
       union [
         case empty (function _ -> None) (function () -> None) ;
         case OrderStatus.order_response_encoding
@@ -263,7 +255,7 @@ module User = struct
 
   let open_orders symbol =
     Fastrest.get ~auth:authf
-      (or_error (Json_encoding.list OrderStatus.encoding))
+      (or_error (list OrderStatus.encoding))
       Uri.(with_query (with_path url "api/v3/openOrders") ["symbol", [symbol]])
 
   let account_info () =
@@ -271,9 +263,14 @@ module User = struct
       (or_error AccountInfo.encoding)
       (Uri.with_path url "api/v3/account")
 
+  let myTrades symbol =
+    let q = ["symbol", [symbol]] in
+    Fastrest.get ~auth:authf
+      (or_error (list empty))
+      Uri.(with_query (with_path url "api/v3/myTrades") q)
+
   module Stream = struct
     let encoding =
-      let open Json_encoding in
       conv Fn.id Fn.id (obj1 (req "listenKey" string))
 
     let start () =
@@ -285,12 +282,12 @@ module User = struct
       Fastrest.put_form
         ~auth:authf_keyonly
         ~params:["listenKey", [listenKey]]
-        (or_error Json_encoding.empty)
+        (or_error empty)
         (Uri.with_path url "api/v1/userDataStream")
 
     let close ~listenKey =
       Fastrest.delete ~auth:authf_keyonly
-      (or_error Json_encoding.empty)
+      (or_error empty)
       Uri.(with_query (with_path url "api/v1/userDataStream")
              ["listenKey", [listenKey]])
   end

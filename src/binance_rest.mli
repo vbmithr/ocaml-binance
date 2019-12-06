@@ -76,6 +76,8 @@ module User : sig
   val account_info : unit ->
     (form, AccountInfo.t) service
 
+  val myTrades : string -> (form, unit list) service
+
   val order :
     ?dry_run:bool ->
     symbol:string ->

@@ -24,33 +24,39 @@ let wrap ?timeout ?(speed=`Quick) n f =
     | Error e ->  Alcotest.fail (Error.to_string_hum e)
   end
 
+let request ?timeout ?(speed=`Quick) ?auth n req =
+  Alcotest_async.test_case ?timeout n speed begin fun () ->
+    Fastrest.request ?auth req >>= function
+    | Ok _ -> Deferred.unit
+    | Error e ->  Alcotest.fail (Error.to_string_hum e)
+  end
+
 open Binance
 open Binance_rest
 
 let auth = Fastrest.auth ~key:cfg.key ~secret:cfg.secret ()
 
+let timeout = Time.Span.of_int_sec 10
+
 let rest = [
-  wrap "exchangeInfo"
-    ~timeout:(Time.Span.of_int_sec 10)
-    (fun () -> Fastrest.request (ExchangeInfo.get)) ;
-  wrap "depth" (fun () -> Fastrest.request (Depth.get ~limit:5 "BNBBTC")) ;
-  wrap "stream" begin fun () ->
+  request "exchangeInfo" ~timeout ExchangeInfo.get ;
+  request "depth" ~timeout (Depth.get ~limit:5 "BNBBTC") ;
+  wrap "stream" ~timeout begin fun () ->
     Fastrest.request ~auth (User.Stream.start ()) >>= function
     | Error msg -> return (Error msg)
     | Ok listenKey ->
       Fastrest.request ~auth (User.Stream.close ~listenKey)
   end ;
-  wrap "open_orders" (fun () -> Fastrest.request ~auth (User.open_orders "BNBBTC")) ;
-  wrap "account_info" (fun () -> Fastrest.request ~auth (User.account_info ())) ;
-  wrap "fake_trade" begin fun () ->
-    Fastrest.request ~auth
-      (User.order
-         ~dry_run:true
-         ~symbol:"BNBBTC"
-         ~side:Buy
-         ~kind:OrderType.Market
-         ~qty:2. ())
-  end
+  request "open_orders" ~timeout ~auth (User.open_orders "BNBBTC") ;
+  request "account_info" ~timeout ~auth (User.account_info ()) ;
+  request "myTrades" ~timeout ~auth (User.myTrades "ZILBTC") ;
+  request "fake_trade" ~timeout ~auth
+    (User.order
+       ~dry_run:true
+       ~symbol:"BNBBTC"
+       ~side:Buy
+       ~kind:OrderType.Market
+       ~qty:2. ())
 ]
 
 let () =
