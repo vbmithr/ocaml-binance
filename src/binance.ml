@@ -195,15 +195,23 @@ module Level = struct
 end
 
 module Sym = struct
-  type t = {
-    symbol: string ;
-    base: string ;
-    base_decimals: int ;
-    quote: string ;
-    quote_decimals: int ;
-  } [@@deriving sexp]
+  module T = struct
+    type t = {
+      symbol: string ;
+      base: string ;
+      base_decimals: int ;
+      quote: string ;
+      quote_decimals: int ;
+    } [@@deriving sexp]
 
-  let compare a b = String.compare a.symbol b.symbol
+    let compare a b = String.compare a.symbol b.symbol
+    let equal a b = String.equal a.symbol b.symbol
+    let hash t = Hashtbl.hash t
+  end
+  include T
+  module Set = Set.Make(T)
+  module Map = Map.Make(T)
+  module Table = Hashtbl.Make(T)
 
   let encoding =
     let open Json_encoding in
