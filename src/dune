@@ -28,7 +28,7 @@
  (preprocess (pps ppx_sexp_conv ppx_let))
  (synopsis "Binance Websocket API - Async")
  (modules Binance_ws_async)
- (libraries binance-ws logs-async fastws-async))
+ (libraries uri-sexp binance-ws logs-async fastws-async))
 
 (executable
  (name        console)

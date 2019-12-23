@@ -44,7 +44,7 @@ let orderbook symbols init c =
   let streams = List.map symbols ~f:begin fun symbol ->
       Stream.create ~topic:Depth ~symbol
     end in
-  Binance_ws_async.connect_exn streams >>= fun (evts, _cleaned_up) ->
+  Binance_ws_async.connect_exn streams >>= fun evts ->
   Pipe.fold evts ~init:init_acc
     ~f:begin fun ({ prev ; unprocessed ; bids ; asks } as acc) -> function
       | Trade _ -> Deferred.return acc
