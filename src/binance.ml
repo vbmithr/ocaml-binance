@@ -202,7 +202,7 @@ module Sym = struct
       base_decimals: int ;
       quote: string ;
       quote_decimals: int ;
-    } [@@deriving sexp]
+    } [@@deriving sexp_of]
 
     let compare a b = String.compare a.symbol b.symbol
     let equal a b = String.equal a.symbol b.symbol
@@ -212,6 +212,9 @@ module Sym = struct
   module Set = Set.Make(T)
   module Map = Map.Make(T)
   module Table = Hashtbl.Make(T)
+
+  let pp ppf t = Sexplib.Sexp.pp ppf (sexp_of_t t)
+  let pp_symbol ppf t = Fmt.string ppf t.symbol
 
   let encoding =
     let open Json_encoding in

@@ -90,7 +90,10 @@ module Sym : sig
     base_decimals: int ;
     quote: string ;
     quote_decimals: int ;
-  } [@@deriving sexp]
+  } [@@deriving sexp_of]
+
+  val pp : t Fmt.t
+  val pp_symbol : t Fmt.t
 
   module Set : Set.S with type elt := t
   module Map : Map.S with type key := t
