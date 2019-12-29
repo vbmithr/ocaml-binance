@@ -6,23 +6,23 @@ val url : Uri.t
 
 val connect :
   ?buf:Bi_outbuf.t ->
-  ?hb_ns:Time_stamp_counter.Calibrator.t * Int63.t ->
+  ?hb:Time_ns.Span.t ->
   Stream.t list -> t Pipe.Reader.t Deferred.Or_error.t
 
 val connect_exn :
   ?buf:Bi_outbuf.t ->
-  ?hb_ns:Time_stamp_counter.Calibrator.t * Int63.t ->
+  ?hb:Time_ns.Span.t ->
   Stream.t list -> t Pipe.Reader.t Deferred.t
 
 val with_connection :
   ?buf:Bi_outbuf.t ->
-  ?hb_ns:Time_stamp_counter.Calibrator.t * Int63.t ->
+  ?hb:Time_ns.Span.t ->
   Stream.t list -> f:(t Pipe.Reader.t -> 'a Deferred.t) ->
   'a Deferred.Or_error.t
 
 val with_connection_exn :
   ?buf:Bi_outbuf.t ->
-  ?hb_ns:Time_stamp_counter.Calibrator.t * Int63.t ->
+  ?hb:Time_ns.Span.t ->
   Stream.t list -> f:(t Pipe.Reader.t -> 'a Deferred.t) ->
   'a Deferred.t
 
@@ -36,7 +36,7 @@ module Persistent : sig
     ?on_event:(Event.t -> unit Deferred.t) ->
     ?retry_delay:(unit -> Time_ns.Span.t) ->
     ?buf:Bi_outbuf.t ->
-    ?hb_ns:Time_stamp_counter.Calibrator.t * Int63.t ->
+    ?hb:Time_ns.Span.t ->
     Stream.t list ->
     (unit -> address Or_error.t Deferred.t) -> t
 end
