@@ -117,6 +117,10 @@ module Stream = struct
     String.concat "/" (List.map to_string streams)
 end
 
+let url streams =
+  Uri.make ~scheme:"https" ~host:"stream.binance.com" ~port:9443
+    ~path:"stream" ~query:["streams", [Stream.to_path streams]] ()
+
 type t =
   | Trade of Trade.t
   | Depth of Depth.t

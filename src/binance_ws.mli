@@ -49,6 +49,8 @@ module Stream : sig
   val to_path : t list -> string
 end
 
+val url : Stream.t list -> Uri.t
+
 type t =
   | Trade of Trade.t
   | Depth of Depth.t

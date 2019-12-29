@@ -44,8 +44,12 @@ let orderbook symbols init c =
   let streams = List.map symbols ~f:begin fun symbol ->
       Stream.create ~topic:Depth ~symbol
     end in
-  Binance_ws_async.connect_exn streams >>= fun evts ->
-  Pipe.fold evts ~init:init_acc
+  let buf = Bi_outbuf.create 4096 in
+  Fastws_async.connect
+    ~rd:(Binance_ws_async.of_string ~buf)
+    ~wr:(fun _ -> assert false) (Binance_ws.url streams) >>|? fun { r; w; _ } ->
+  Pipe.close w ;
+  Pipe.fold r ~init:init_acc
     ~f:begin fun ({ prev ; unprocessed ; bids ; asks } as acc) -> function
       | Trade _ -> Deferred.return acc
       | Depth ({ symbol; _ } as d) ->
@@ -147,7 +151,7 @@ let main symbols limit =
   List.iter symbols ~f:begin fun key ->
     String.Table.set pipes ~key ~data:(Pipe.create ())
   end ;
-  don't_wait_for (Deferred.ignore (orderbook symbols init pipes)) ;
+  (orderbook symbols init pipes >>> ignore) ;
   List.iter symbols ~f:begin fun s ->
     let i = String.Table.find_exn init s in
     let (r, _) = String.Table.find_exn pipes s in
