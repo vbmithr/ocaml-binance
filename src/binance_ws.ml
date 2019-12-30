@@ -150,3 +150,6 @@ let encoding =
        (req "stream" string)
        (req "data" encoding))
 
+let of_string ?buf msg =
+  Yojson_repr.destruct_safe encoding (Yojson.Safe.from_string ?buf msg)
+

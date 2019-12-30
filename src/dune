@@ -22,18 +22,15 @@
  (modules Binance_ws)
  (libraries fixtypes binance fmt))
 
-(library
- (name        binance_ws_async)
- (public_name binance-ws-async)
- (preprocess (pps ppx_sexp_conv ppx_let))
- (synopsis "Binance Websocket API - Async")
- (modules Binance_ws_async)
- (libraries uri-sexp binance-ws logs-async fastws-async))
-
 (executable
  (name        console)
  (public_name binance-console)
  (preprocess (pps ppx_sexp_conv ppx_let))
  (package      binance-ws)
  (modules Console)
- (libraries logs-async-reporter binance-ws-async))
+ (libraries
+   core
+   async
+   fastws-async
+   logs-async-reporter
+   binance-ws))

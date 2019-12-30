@@ -5,8 +5,11 @@
  (modules     Depth)
  (preprocess (pps ppx_jane ppx_sexp_conv))
  (libraries
+   core
+   async
+   fastws-async
    logs-async-reporter
-   binance-ws-async
+   binance-ws
    binance-rest
    alcotest-async))
 

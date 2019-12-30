@@ -9,7 +9,7 @@ let main streams =
   let streams = List.map ~f:Stream.of_string streams in
   let buf = Bi_outbuf.create 4096 in
   Fastws_async.with_connection
-    ~of_string:(Binance_ws_async.of_string ~buf)
+    ~of_string:(of_string ~buf)
     ~to_string:(fun _ -> assert false)
     (Binance_ws.url streams) ~f:begin fun _ r w ->
     Pipe.close w ;
