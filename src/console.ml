@@ -11,7 +11,7 @@ let main streams =
   Fastws_async.with_connection
     ~of_string:(of_string ~buf)
     ~to_string:(fun _ -> assert false)
-    (Binance_ws.url streams) ~f:begin fun _ r w ->
+    (Binance_ws.url streams) begin fun _ r w ->
     Pipe.close w ;
     Pipe.iter r ~f:begin function
       | Trade t -> Logs_async.app ~src (fun m -> m "%a" Trade.pp t)
@@ -27,7 +27,7 @@ let command =
       and () = Logs_async_reporter.set_level_via_param [] in
       fun () ->
         Logs.set_reporter (Logs_async_reporter.reporter ()) ;
-        Deferred.Or_error.ok_exn (main streams)
+        main streams
     ] end
 
 let () = Command.run command

@@ -47,7 +47,7 @@ let orderbook symbols init c =
   let buf = Bi_outbuf.create 4096 in
   Fastws_async.connect
     ~of_string:(of_string ~buf)
-    ~to_string:(fun _ -> assert false) (Binance_ws.url streams) >>|? fun { r; w; _ } ->
+    ~to_string:(fun _ -> assert false) (Binance_ws.url streams) >>= fun { r; w; _ } ->
   Pipe.close w ;
   Pipe.fold r ~init:init_acc
     ~f:begin fun ({ prev ; unprocessed ; bids ; asks } as acc) -> function
