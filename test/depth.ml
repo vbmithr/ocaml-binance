@@ -126,20 +126,16 @@ let wait_n_events c_read n =
 let init_orderbook limit symbol init c_read =
   let open Binance_rest in
   wait_n_events c_read 10 >>= fun () ->
-  Fastrest.request (Depth.get ~limit symbol) >>|
-  Result.map ~f:begin fun { Depth.last_update_id ; bids ; asks } ->
-    last_update_id, load_books bids asks
-  end >>= function
-  | Error e -> Error.raise e
-  | Ok snapshot ->
-    Logs_async.app (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
-    Ivar.fill init snapshot ;
-    Pipe.iter c_read ~f:begin function
-      | (None, _bids, _asks) ->
-        Logs_async.app (fun m -> m "Order books initialized %s" symbol)
-      | (Some _, _, _) ->
-        Logs_async.app (fun m -> m "Order books updated")
-    end
+  Fastrest.request (Depth.get ~limit symbol) >>= fun { Depth.last_update_id ; bids ; asks } ->
+  let snapshot = last_update_id, load_books bids asks in
+  Logs_async.app (fun m -> m "Got snapshot for %s" symbol) >>= fun () ->
+  Ivar.fill init snapshot ;
+  Pipe.iter c_read ~f:begin function
+    | None, _bids, _asks ->
+      Logs_async.app (fun m -> m "Order books initialized %s" symbol)
+    | Some _, _, _ ->
+      Logs_async.app (fun m -> m "Order books updated")
+  end
 
 let main symbols limit =
   let symbols = List.map symbols ~f:String.lowercase in

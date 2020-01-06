@@ -19,16 +19,13 @@ let cfg =
 
 let wrap ?timeout ?(speed=`Quick) n f =
   Alcotest_async.test_case ?timeout n speed begin fun () ->
-    f () >>= function
-    | Ok _ -> Deferred.unit
-    | Error e ->  Alcotest.fail (Error.to_string_hum e)
+    f ()
   end
 
 let request ?timeout ?(speed=`Quick) ?auth n req =
   Alcotest_async.test_case ?timeout n speed begin fun () ->
-    Fastrest.request ?auth req >>= function
-    | Ok _ -> Deferred.unit
-    | Error e ->  Alcotest.fail (Error.to_string_hum e)
+    Fastrest.request ?auth req |>
+    Deferred.ignore_m
   end
 
 open Binance
@@ -42,10 +39,8 @@ let rest = [
   request "exchangeInfo" ~timeout ExchangeInfo.get ;
   request "depth" ~timeout (Depth.get ~limit:5 "BNBBTC") ;
   wrap "stream" ~timeout begin fun () ->
-    Fastrest.request ~auth (User.Stream.start ()) >>= function
-    | Error msg -> return (Error msg)
-    | Ok listenKey ->
-      Fastrest.request ~auth (User.Stream.close ~listenKey)
+    Fastrest.request ~auth (User.Stream.start ()) >>= fun listenKey ->
+    Fastrest.request ~auth (User.Stream.close ~listenKey)
   end ;
   request "open_orders" ~timeout ~auth (User.open_orders "BNBBTC") ;
   request "account_info" ~timeout ~auth (User.account_info ()) ;
