@@ -4,7 +4,12 @@
  (preprocess (pps ppx_sexp_conv ppx_let))
  (modules Binance)
  (synopsis "Binance API types")
- (libraries fixtypes sexplib fmt ocplib-json-typed ptime yojson))
+ (libraries
+   fixtypes
+   sexplib
+   fmt
+   ptime
+   ocplib-json-typed))
 
 (library
  (name        binance_rest)
@@ -12,7 +17,11 @@
  (preprocess (pps ppx_sexp_conv ppx_let))
  (modules Binance_rest)
  (synopsis "REST API for Binance")
- (libraries logs-async binance core async fastrest yojson digestif.c hex))
+ (libraries
+   binance
+   core
+   fastrest
+   digestif.c))
 
 (library
  (name        binance_ws)
@@ -20,7 +29,14 @@
  (preprocess (pps ppx_sexp_conv ppx_let))
  (synopsis "Binance Websocket API")
  (modules Binance_ws)
- (libraries fixtypes binance fmt))
+ (libraries
+   binance
+   sexplib
+   fmt
+   ptime
+   ocplib-json-typed
+   yojson
+   fixtypes))
 
 (executable
  (name        console)

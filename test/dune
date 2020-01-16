@@ -18,7 +18,6 @@
  (modules    test)
  (preprocess (pps ppx_jane ppx_sexp_conv))
  (libraries
-   logs-async-reporter
-   binance-ws
    binance-rest
+   logs-async-reporter
    alcotest-async))
