@@ -1,22 +1,6 @@
 open Core
 open Async
 
-module Cfg = struct
-  type cfg = {
-    key: string ;
-    secret: string ;
-    passphrase: string [@default ""];
-    quote: (string * int) list [@default []];
-  } [@@deriving sexp]
-
-  type t = (string * cfg) list [@@deriving sexp]
-end
-
-let default_cfg = Filename.concat (Option.value_exn (Sys.getenv "HOME")) ".virtu"
-let cfg =
-  List.Assoc.find_exn ~equal:String.equal
-    (Sexplib.Sexp.load_sexp_conv_exn default_cfg Cfg.t_of_sexp) "BINANCE"
-
 let wrap ?timeout ?(speed=`Quick) n f =
   Alcotest_async.test_case ?timeout n speed begin fun () ->
     f ()
@@ -31,7 +15,10 @@ let request ?timeout ?(speed=`Quick) ?auth n req =
 open Binance
 open Binance_rest
 
-let auth = Fastrest.auth ~key:cfg.key ~secret:cfg.secret ()
+let auth =
+  match String.split ~on:':' (Sys.getenv_exn "TOKEN_BINANCE") with
+  | [key; secret] -> Fastrest.auth ~key ~secret ()
+  | _ -> assert false
 
 let timeout = Time.Span.of_int_sec 10
 
