@@ -1,7 +1,7 @@
 (executable
  (name        depth)
  (public_name binance-depth)
- (package     binance-ws)
+ (package     binance-bin)
  (modules     Depth)
  (preprocess (pps ppx_jane ppx_sexp_conv))
  (libraries
@@ -10,8 +10,7 @@
    fastws-async
    logs-async-reporter
    binance-ws
-   binance-rest
-   alcotest-async))
+   binance-rest))
 
 (test
  (name       test)

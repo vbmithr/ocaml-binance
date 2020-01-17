@@ -1,0 +1,22 @@
+opam-version: "2.0"
+authors: "Vincent Bernardoff <vb@luminar.eu.org>"
+maintainer: "Vincent Bernardoff <vb@luminar.eu.org>"
+homepage: "https://github.com/vbmithr/ocaml-binance"
+bug-reports: "https://github.com/vbmithr/ocaml-binance/issues"
+dev-repo: "git+https://github.com/vbmithr/ocaml-binance"
+doc: "https://vbmithr.github.io/ocaml-binance/doc"
+build: [ "dune" "build" "-j" jobs "-p" name ]
+run-test: [ "dune" "runtest" "-j" jobs "-p" name ]
+depends: [
+  "dune" {>= "1.11.4"}
+  "core" {>= "v0.12.4"}
+  "async" {>= "v0.12.0"}
+  "fastws-async" {= version}
+  "binance-ws" {= version}
+  "binance-rest" {= version}
+  "logs-async" {= version}
+  "logs-async-reporter" {= version}
+]
+synopsis: "Binance API"
+description: """
+"""
