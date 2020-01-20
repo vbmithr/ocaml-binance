@@ -15,6 +15,7 @@
 (test
  (name       test)
  (modules    test)
+ (package binance-rest)
  (preprocess (pps ppx_jane ppx_sexp_conv))
  (libraries
    binance-rest
