@@ -35,7 +35,6 @@
    fmt
    ptime
    ocplib-json-typed
-   yojson
    fixtypes))
 
 (executable
@@ -47,6 +46,7 @@
  (libraries
    core
    async
+   yojson
    fastws-async
    logs-async-reporter
    binance-ws))

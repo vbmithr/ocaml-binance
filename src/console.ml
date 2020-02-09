@@ -7,9 +7,11 @@ let src = Logs.Src.create "binance.ws.console"
 
 let main streams =
   let streams = List.map ~f:Stream.of_string streams in
+  let module Encoding = Json_encoding.Make(Json_repr.Yojson) in
   let buf = Bi_outbuf.create 4096 in
-  Fastws_async.with_connection
-    ~of_string:(of_string ~buf)
+  let of_string s =
+    Encoding.destruct encoding (Yojson.Safe.from_string ~buf s) in
+  Fastws_async.with_connection ~of_string
     ~to_string:(fun _ -> assert false)
     (Binance_ws.url streams) begin fun r w ->
     Pipe.close w ;

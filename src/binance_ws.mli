@@ -58,4 +58,3 @@ type t =
 
 val pp : Format.formatter -> t -> unit
 val encoding : t Json_encoding.encoding
-val of_string : ?buf:Bi_outbuf.t -> string -> t
