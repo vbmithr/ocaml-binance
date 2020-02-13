@@ -20,5 +20,4 @@
  (preprocess (pps ppx_jane ppx_sexp_conv))
  (libraries
    binance-rest
-   logs-async-reporter
    alcotest-async))

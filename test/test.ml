@@ -1,13 +1,14 @@
 open Core
 open Async
+open Alcotest_async
 
 let wrap ?timeout ?(speed=`Quick) n f =
-  Alcotest_async.test_case ?timeout n speed begin fun () ->
+  test_case ?timeout n speed begin fun () ->
     f ()
   end
 
 let request ?timeout ?(speed=`Quick) ?auth n req =
-  Alcotest_async.test_case ?timeout n speed begin fun () ->
+  test_case ?timeout n speed begin fun () ->
     Fastrest.request ?auth req |>
     Deferred.ignore_m
   end
@@ -41,9 +42,13 @@ let rest = [
        ~qty:2. ())
 ]
 
-let () =
-  Logs.set_reporter (Logs_async_reporter.reporter ()) ;
-  Logs.set_level ~all:true (Some Debug) ;
-  Alcotest.run "binance" [
+let main () =
+  run "binance" [
     "rest", rest ;
   ]
+
+let () =
+  don't_wait_for (main ()) ;
+  never_returns (Scheduler.go ())
+
+
